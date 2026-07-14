@@ -1,0 +1,1712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dairy Farm Management</title>
+    <style>
+        :root {
+            --primary: #0284c7;
+            --primary-dark: #0369a1;
+            --primary-light: #e0f2fe;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #ea580c;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --bg-main: #f8fafc;
+            --card-bg: #ffffff;
+            --border: #cbd5e1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-size: 18px;
+            line-height: 1.5;
+            padding-top: 70px;
+            padding-bottom: 90px;
+        }
+
+        /* Top Header Sticky Navigation */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 65px;
+            background-color: var(--primary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 100;
+        }
+
+        header h1 {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            display: none;
+            margin-right: 8px;
+        }
+
+        /* Main Content Container */
+        main {
+            padding: 16px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .page {
+            display: none;
+            animation: fadeIn 0.2s ease-in-out;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Typography & Structure Elements */
+        h2 {
+            font-size: 22px;
+            margin-bottom: 16px;
+            color: var(--primary-dark);
+            border-bottom: 2px solid var(--primary-light);
+            padding-bottom: 6px;
+        }
+
+        h3 {
+            font-size: 19px;
+            margin: 16px 0 8px 0;
+            color: var(--text-main);
+        }
+
+        /* Card Layouts */
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+            border: 1px solid #f1f5f9;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .stat-box {
+            background: var(--primary-light);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stat-box.alt { background: #dcfce7; }
+        .stat-box.warn { background: #ffedd5; }
+        .stat-box.crit { background: #fee2e2; }
+
+        .stat-label {
+            font-size: 14px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .stat-val {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+        /* Dynamic Timeframe Filter Segmented Control */
+        .time-filter-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            margin-bottom: 16px;
+        }
+
+        .filter-chip {
+            background: #e2e8f0;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 2px;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-main);
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .filter-chip.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* Form Controls - Designed for Big Fingers */
+        .form-group {
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 14px;
+            font-size: 18px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: white;
+            color: var(--text-main);
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--primary);
+        }
+
+        .radio-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 10px;
+        }
+
+        .radio-btn {
+            position: relative;
+        }
+
+        .radio-btn input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .radio-btn label {
+            display: block;
+            background: white;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 6px;
+            text-align: center;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 0;
+        }
+
+        .radio-btn input:checked + label {
+            background: var(--primary-light);
+            border-color: var(--primary);
+            color: var(--primary-dark);
+            font-weight: 700;
+        }
+
+        /* Large Touch Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            padding: 14px;
+            font-size: 18px;
+            font-weight: 700;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-bottom: 8px;
+            gap: 8px;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-secondary { background: #e2e8f0; color: var(--text-main); }
+
+        .btn-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        /* Instant Realtime Suggestion Container */
+        .suggestions-box {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid var(--primary);
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 50;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .suggestion-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 18px;
+        }
+
+        .suggestion-item:last-child { border-bottom: none; }
+        .suggestion-item:active { background-color: var(--primary-light); }
+
+        /* Dynamic History Records UI */
+        .history-list {
+            margin-top: 16px;
+        }
+
+        .record-card {
+            background: white;
+            border-left: 5px solid var(--primary);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .record-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 700;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 4px;
+            margin-bottom: 6px;
+            font-size: 16px;
+        }
+
+        .record-body {
+            font-size: 16px;
+            color: #334155;
+        }
+
+        .record-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 16px;
+            margin-top: 8px;
+            padding-top: 6px;
+            border-top: 1px dashed #e2e8f0;
+        }
+
+        .action-link {
+            background: none;
+            border: none;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .action-link.edit { color: var(--primary); }
+        .action-link.delete { color: var(--danger); }
+
+        /* Bottom Fixed Navigation Bar */
+        nav.bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 75px;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
+            z-index: 100;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 16%;
+            padding: 4px 0;
+        }
+
+        .nav-item span.icon {
+            font-size: 24px;
+            margin-bottom: 2px;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-item.active span.icon {
+            transform: scale(1.1);
+            transition: transform 0.2s;
+        }
+
+        /* Search Layout */
+        .search-container {
+            margin-bottom: 16px;
+        }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            bottom: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #334155;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 16px;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .profile-section {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+            margin-bottom: 12px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <button class="back-btn" id="globalBackBtn" onclick="app.closeProfile()">←</button>
+        <h1 id="headerTitle">Dairy Farm Dashboard</h1>
+    </header>
+
+    <main>
+        <!-- ALERT TOAST -->
+        <div id="toast" class="toast"></div>
+
+        <!-- SEARCH CONTAINER COMPONENT (Omnipresent inside operational sub-pages) -->
+        <div id="searchWrapper" class="search-container" style="display:none;">
+            <input type="text" id="globalSearchInput" placeholder="🔍 Search records..." oninput="app.performSearch()">
+        </div>
+
+        <!-- ================= DASHBOARD PAGE ================= -->
+        <div id="page-dashboard" class="page active">
+            <h2>Farm Summary</h2>
+            
+            <!-- Dynamic Micro Timeframe Filter Buttons Wrapper -->
+            <div class="time-filter-row">
+                <button class="filter-chip active" id="chip-today" onclick="app.setDashboardTimeframe('today')">Today</button>
+                <button class="filter-chip" id="chip-week" onclick="app.setDashboardTimeframe('week')">Week</button>
+                <button class="filter-chip" id="chip-month" onclick="app.setDashboardTimeframe('month')">Month</button>
+                <button class="filter-chip" id="chip-year" onclick="app.setDashboardTimeframe('year')">Year</button>
+                <button class="filter-chip" id="chip-custom" onclick="app.setDashboardTimeframe('custom')">Custom</button>
+            </div>
+
+            <!-- Custom Date Range Form Selection Context -->
+            <div id="custom-date-box" class="card" style="display:none; margin-bottom:16px;">
+                <div class="btn-row">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="font-size:14px;">Start Date</label>
+                        <input type="date" id="dash-start-date" onchange="app.calculateDashboardMetrics()">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="font-size:14px;">End Date</label>
+                        <input type="date" id="dash-end-date" onchange="app.calculateDashboardMetrics()">
+                    </div>
+                </div>
+            </div>
+            
+            <h3>Finance Performance</h3>
+            <div class="card grid-2">
+                <div class="stat-box alt">
+                    <div class="stat-label">Total Income</div>
+                    <div class="stat-val" id="dash-today-income">₹0</div>
+                </div>
+                <div class="stat-box crit">
+                    <div class="stat-label">Total Expenses</div>
+                    <div class="stat-val" id="dash-today-expense">₹0</div>
+                </div>
+                <div class="stat-box" style="grid-column: span 2; background: #f0fdf4;">
+                    <div class="stat-label">Net Profit / Loss</div>
+                    <div class="stat-val" id="dash-today-profit">₹0</div>
+                </div>
+            </div>
+
+            <h3>Herd Breakdown</h3>
+            <div class="card grid-2">
+                <div class="stat-box"><div class="stat-label">Total Cows</div><div class="stat-val" id="dash-cows-total">0</div></div>
+                <div class="stat-box"><div class="stat-label">Milking</div><div class="stat-val" id="dash-cows-milking">0</div></div>
+                <div class="stat-box warn"><div class="stat-label">Pregnant</div><div class="stat-val" id="dash-cows-pregnant">0</div></div>
+                <div class="stat-box"><div class="stat-label">Dry</div><div class="stat-val" id="dash-cows-dry">0</div></div>
+            </div>
+
+            <h3>Milk Yield Summary</h3>
+            <div class="card grid-2">
+                <div class="stat-box"><div class="stat-label">Morning</div><div class="stat-val" id="dash-milk-am">0 L</div></div>
+                <div class="stat-box"><div class="stat-label">Evening</div><div class="stat-val" id="dash-milk-pm">0 L</div></div>
+                <div class="stat-box alt"><div class="stat-label">Total Yield</div><div class="stat-val" id="dash-milk-total">0 L</div></div>
+                <div class="stat-box warn"><div class="stat-label">Unsold Yield</div><div class="stat-val" id="dash-milk-unsold">0 L</div></div>
+            </div>
+
+            <h3>Production Analytics</h3>
+            <div class="card">
+                <div class="stat-label">Filtered Production Total</div>
+                <div class="stat-val" id="dash-month-milk" style="margin-bottom: 12px;">0 Liters</div>
+                <div class="grid-2">
+                    <div>
+                        <div class="stat-label">Avg / Cow</div>
+                        <div class="stat-val" id="dash-avg-milk" style="font-size:18px;">0 L</div>
+                    </div>
+                    <div>
+                        <div class="stat-label">Top Performer</div>
+                        <div class="stat-val" id="dash-top-cow" style="font-size:18px;">None</div>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="crit">Pregnancy Alerts (Next 30 Days)</h3>
+            <div class="card" id="dash-pregnancy-alerts">
+                <p style="color:var(--text-muted); font-size:16px;">No expected calvings within 30 days.</p>
+            </div>
+
+            <h3>Recent Birth Records</h3>
+            <div class="card" id="dash-recent-births">
+                <p style="color:var(--text-muted); font-size:16px;">No recent birth records found.</p>
+            </div>
+
+            <h3>System Data Tools</h3>
+            <div class="card">
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="app.backupData()">💾 Backup</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('restoreFile').click()">📂 Restore</button>
+                </div>
+                <input type="file" id="restoreFile" style="display:none;" onchange="app.restoreData(event)">
+                <button class="btn btn-primary" onclick="app.exportAllCSV()">📊 Export All Data (CSV)</button>
+                <button class="btn btn-danger" onclick="app.clearAllData()">⚠ Master System Reset</button>
+            </div>
+        </div>
+
+        <!-- ================= COW MASTER PAGE ================= -->
+        <div id="page-cow-master" class="page">
+            <h2>Cow Registry</h2>
+            <div class="card">
+                <form id="form-cow" onsubmit="app.saveRecord(event, 'cows')">
+                    <input type="hidden" id="cow-id">
+                    
+                    <div class="form-group">
+                        <label>Cow Name / Tag Number *</label>
+                        <input type="text" id="cow-name" required placeholder="e.g., Lakshmi">
+                    </div>
+                    <div class="form-group">
+                        <label>Breed</label>
+                        <input type="text" id="cow-breed" placeholder="e.g., Holstein / Jersey / HF">
+                    </div>
+                    <div class="btn-row">
+                        <div class="form-group">
+                            <label>Date of Birth</label>
+                            <input type="date" id="cow-dob">
+                        </div>
+                        <div class="form-group">
+                            <label>Purchase Date</label>
+                            <input type="date" id="cow-purchase-date">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Purchase Price (₹)</label>
+                        <input type="number" id="cow-price" min="0" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Current Status *</label>
+                        <div class="radio-group">
+                            <div class="radio-btn"><input type="radio" name="cow-status" id="st-milking" value="Milking" checked><label for="st-milking">Milking</label></div>
+                            <div class="radio-btn"><input type="radio" name="cow-status" id="st-dry" value="Dry"><label for="st-dry">Dry</label></div>
+                            <div class="radio-btn"><input type="radio" name="cow-status" id="st-pregnant" value="Pregnant"><label for="st-pregnant">Pregnant</label></div>
+                            <div class="radio-btn"><input type="radio" name="cow-status" id="st-sold" value="Sold"><label for="st-sold">Sold</label></div>
+                            <div class="radio-btn"><input type="radio" name="cow-status" id="st-dead" value="Dead"><label for="st-dead">Dead</label></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Remarks / Notes</label>
+                        <textarea id="cow-remarks" rows="2" placeholder="Any specific traits or details..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success">Save Cow Info</button>
+                    <button type="button" class="btn btn-secondary" onclick="app.resetForm('cows')">Clear</button>
+                </form>
+            </div>
+            
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>Registered Herd Records</h3>
+                <button class="btn btn-secondary" style="width:auto; padding:6px 12px; font-size:14px;" onclick="app.exportSingleCSV('cows')">Export CSV</button>
+            </div>
+            <div id="list-cows" class="history-list"></div>
+        </div>
+
+        <!-- ================= DAILY MILK PAGE ================= -->
+        <div id="page-daily-milk" class="page">
+            <h2>Daily Milk Entry</h2>
+            <div class="card">
+                <form id="form-milk" onsubmit="app.saveRecord(event, 'milk')">
+                    <input type="hidden" id="milk-id">
+                    
+                    <div class="form-group">
+                        <label>Date *</label>
+                        <input type="date" id="milk-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Cow Name *</label>
+                        <input type="text" id="milk-cow" autocomplete="off" required oninput="app.handleSuggestions(this)" placeholder="Type to search cow name...">
+                        <div class="suggestions-box"></div>
+                    </div>
+                    <div class="btn-row">
+                        <div class="form-group">
+                            <label>Morning (L)</label>
+                            <input type="number" step="0.1" id="milk-am" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Evening (L)</label>
+                            <input type="number" step="0.1" id="milk-pm" min="0" value="0">
+                        </div>
+                    </div>
+                    <div class="btn-row">
+                        <div class="form-group">
+                            <label>Sold Volume (L)</label>
+                            <input type="number" step="0.1" id="milk-sold" min="0" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Rate / Liter (₹)</label>
+                            <input type="number" step="0.5" id="milk-price" min="0" value="40">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-success">Save Milk Log</button>
+                    <button type="button" class="btn btn-secondary" onclick="app.resetForm('milk')">Clear</button>
+                </form>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>Production Logs</h3>
+                <button class="btn btn-secondary" style="width:auto; padding:6px 12px; font-size:14px;" onclick="app.exportSingleCSV('milk')">Export CSV</button>
+            </div>
+            <div id="list-milk" class="history-list"></div>
+        </div>
+
+        <!-- ================= PREGNANCY PAGE ================= -->
+        <div id="page-pregnancy" class="page">
+            <h2>Breeding & Pregnancy Logs</h2>
+            <div class="card">
+                <form id="form-pregnancy" onsubmit="app.saveRecord(event, 'pregnancy')">
+                    <input type="hidden" id="preg-id">
+                    
+                    <div class="form-group">
+                        <label>Cow Name *</label>
+                        <input type="text" id="preg-cow" autocomplete="off" required oninput="app.handleSuggestions(this)" placeholder="Type to search cow name...">
+                        <div class="suggestions-box"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Breeding Date *</label>
+                        <input type="date" id="preg-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Breeding Method</label>
+                        <div class="radio-group">
+                            <div class="radio-btn"><input type="radio" name="preg-method" id="m-ai" value="AI" checked><label for="m-ai">Insemination (AI)</label></div>
+                            <div class="radio-btn"><input type="radio" name="preg-method" id="m-nat" value="Natural"><label for="m-nat">Natural Bull</label></div>
+                        </div>
+                    </div>
+                    <div class="btn-row">
+                        <div class="form-group">
+                            <label>Doctor Name</label>
+                            <input type="text" id="preg-doc" placeholder="Dr. Sharma">
+                        </div>
+                        <div class="form-group">
+                            <label>Breeding Cost (₹)</label>
+                            <input type="number" id="preg-cost" min="0" value="0">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Status</label>
+                        <div class="radio-group">
+                            <div class="radio-btn"><input type="radio" name="preg-status" id="ps-conf" value="Confirmed" checked><label for="ps-conf">Confirmed</label></div>
+                            <div class="radio-btn"><input type="radio" name="preg-status" id="ps-fail" value="Failed"><label for="ps-fail">Failed</label></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Status Confirmation Date</label>
+                        <input type="date" id="preg-conf-date">
+                    </div>
+                    <div class="form-group">
+                        <label>Remarks</label>
+                        <textarea id="preg-remarks" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success">Save Breeding Data</button>
+                    <button type="button" class="btn btn-secondary" onclick="app.resetForm('pregnancy')">Clear</button>
+                </form>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>Breeding History</h3>
+                <button class="btn btn-secondary" style="width:auto; padding:6px 12px; font-size:14px;" onclick="app.exportSingleCSV('pregnancy')">Export CSV</button>
+            </div>
+            <div id="list-pregnancy" class="history-list"></div>
+        </div>
+
+        <!-- ================= BIRTH RECORDS PAGE ================= -->
+        <div id="page-birth-records" class="page">
+            <h2>Calving & Birth Registry</h2>
+            <div class="card">
+                <form id="form-birth" onsubmit="app.saveRecord(event, 'births')">
+                    <input type="hidden" id="birth-id">
+                    
+                    <div class="form-group">
+                        <label>Calf ID / Tag</label>
+                        <input type="text" id="birth-calf-tag" placeholder="Auto-gen if empty or custom tag">
+                    </div>
+                    <div class="form-group">
+                        <label>Mother Cow Name *</label>
+                        <input type="text" id="birth-mother" autocomplete="off" required oninput="app.handleSuggestions(this)" placeholder="Type to search cow name...">
+                        <div class="suggestions-box"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Calf Sex *</label>
+                        <div class="radio-group">
+                            <div class="radio-btn"><input type="radio" name="birth-sex" id="sex-f" value="Female" checked><label for="sex-f">Heifer (Female)</label></div>
+                            <div class="radio-btn"><input type="radio" name="birth-sex" id="sex-m" value="Male"><label for="sex-m">Bull (Male)</label></div>
+                        </div>
+                    </div>
+                    <div class="btn-row">
+                        <div class="form-group">
+                            <label>Birth Date *</label>
+                            <input type="date" id="birth-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Weight (Kg)</label>
+                            <input type="number" step="0.1" id="birth-weight" min="0" placeholder="0">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Delivery Type</label>
+                        <div class="radio-group">
+                            <div class="radio-btn"><input type="radio" name="birth-type" id="dt-norm" value="Normal" checked><label for="dt-norm">Normal</label></div>
+                            <div class="radio-btn"><input type="radio" name="birth-type" id="dt-asst" value="Assisted"><label for="dt-asst">Assisted</label></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Delivery Cost / Vet Fees (₹)</label>
+                        <input type="number" id="birth-cost" min="0" value="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Remarks</label>
+                        <textarea id="birth-remarks" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success">Save Birth Record</button>
+                    <button type="button" class="btn btn-secondary" onclick="app.resetForm('births')">Clear</button>
+                </form>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>Birth History Ledger</h3>
+                <button class="btn btn-secondary" style="width:auto; padding:6px 12px; font-size:14px;" onclick="app.exportSingleCSV('births')">Export CSV</button>
+            </div>
+            <div id="list-births" class="history-list"></div>
+        </div>
+
+        <!-- ================= TRANSACTIONS PAGE ================= -->
+        <div id="page-transactions" class="page">
+            <h2>Financial Ledger</h2>
+            <div class="card">
+                <form id="form-tx" onsubmit="app.saveRecord(event, 'transactions')">
+                    <input type="hidden" id="tx-id">
+                    
+                    <div class="form-group">
+                        <label>Date *</label>
+                        <input type="date" id="tx-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Transaction Type *</label>
+                        <div class="radio-group">
+                            <div class="radio-btn"><input type="radio" name="tx-type" id="tx-inc" value="Income" checked onchange="app.updateTxCategories()"><label for="tx-inc">Income</label></div>
+                            <div class="radio-btn"><input type="radio" name="tx-type" id="tx-exp" value="Expense" onchange="app.updateTxCategories()"><label for="tx-exp">Expense</label></div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Category *</label>
+                        <select id="tx-category" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Linked Cow Name (Optional)</label>
+                        <input type="text" id="tx-cow" autocomplete="off" oninput="app.handleSuggestions(this)" placeholder="Search if transaction involves specific cow...">
+                        <div class="suggestions-box"></div>
+                    </div>
+                    <div class="btn-row">
+                        <div class="form-group">
+                            <label>Amount (₹) *</label>
+                            <input type="number" id="tx-amount" min="0" required placeholder="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Payment Mode</label>
+                            <select id="tx-mode">
+                                <option value="Cash">Cash</option>
+                                <option value="UPI">UPI / PhonePe / GPay</option>
+                                <option value="Bank">Bank Transfer</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Remarks</label>
+                        <textarea id="tx-remarks" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success">Save Transaction</button>
+                    <button type="button" class="btn btn-secondary" onclick="app.resetForm('transactions')">Clear</button>
+                </form>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>Transaction History</h3>
+                <button class="btn btn-secondary" style="width:auto; padding:6px 12px; font-size:14px;" onclick="app.exportSingleCSV('transactions')">Export CSV</button>
+            </div>
+            <div id="list-transactions" class="history-list"></div>
+        </div>
+
+        <!-- ================= INDIVIDUAL COW PROFILE VIEW ================= -->
+        <div id="page-cow-profile" class="page">
+            <div class="card" style="background:var(--primary-light); border:1px solid var(--primary);">
+                <div class="profile-section">
+                    <h2 id="prof-title" style="border:none; margin:0;">Cow Profile</h2>
+                    <p id="prof-breed-status" style="font-weight:700; color:var(--primary-dark);"></p>
+                </div>
+                <div class="record-body" id="prof-meta-details"></div>
+            </div>
+
+            <h3>Production Performance</h3>
+            <div class="card" id="prof-milk-list"></div>
+
+            <h3>Breeding Matrix</h3>
+            <div class="card" id="prof-preg-list"></div>
+
+            <h3>Calving Offsprings</h3>
+            <div class="card" id="prof-birth-list"></div>
+
+            <h3>Associated Financial Logs</h3>
+            <div class="card" id="prof-tx-list"></div>
+        </div>
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="app.switchTab('dashboard')">
+            <span class="icon">🏠</span><span>Dashboard</span>
+        </button>
+        <button class="nav-item" onclick="app.switchTab('cow-master')">
+            <span class="icon">🐄</span><span>Cows</span>
+        </button>
+        <button class="nav-item" onclick="app.switchTab('daily-milk')">
+            <span class="icon">🥛</span><span>Milk</span>
+        </button>
+        <button class="nav-item" onclick="app.switchTab('pregnancy')">
+            <span class="icon">🤰</span><span>Breeding</span>
+        </button>
+        <button class="nav-item" onclick="app.switchTab('birth-records')">
+            <span class="icon">🐮</span><span>Births</span>
+        </button>
+        <button class="nav-item" onclick="app.switchTab('transactions')">
+            <span class="icon">💰</span><span>Finance</span>
+        </button>
+    </nav>
+
+    <script>
+        const STORAGE_KEY = "DAIRY_FARM_DATA_STORE";
+
+        const defaultData = {
+            cows: [],
+            milk: [],
+            pregnancy: [],
+            births: [],
+            transactions: []
+        };
+
+        class DairyApp {
+            constructor() {
+                this.data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {...defaultData};
+                this.activeTab = 'dashboard';
+                this.currentSearchQuery = "";
+                this.activeProfileCowName = null;
+                this.dashboardTimeframe = 'today'; // Default filter active state
+            }
+
+            persist() {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+                this.calculateDashboardMetrics();
+            }
+
+            toast(msg) {
+                const el = document.getElementById('toast');
+                el.innerText = msg;
+                el.style.display = 'block';
+                setTimeout(() => el.style.display = 'none', 3000);
+            }
+
+            init() {
+                const today = new Date().toISOString().split('T')[0];
+                ['milk-date', 'preg-date', 'birth-date', 'tx-date', 'dash-start-date', 'dash-end-date'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.value = today;
+                });
+
+                this.updateTxCategories();
+                this.switchTab('dashboard');
+                
+                document.addEventListener('click', (e) => {
+                    if(!e.target.classList.contains('suggestion-item') && e.target.tagName !== 'INPUT') {
+                        document.querySelectorAll('.suggestions-box').forEach(b => b.style.display = 'none');
+                    }
+                });
+            }
+
+            switchTab(tabName) {
+                this.activeTab = tabName;
+                this.activeProfileCowName = null;
+                document.getElementById('globalBackBtn').style.display = 'none';
+                
+                document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+                const navIndex = ['dashboard', 'cow-master', 'daily-milk', 'pregnancy', 'birth-records', 'transactions'].indexOf(tabName);
+                if(navIndex !== -1) {
+                    document.querySelectorAll('.nav-item')[navIndex].classList.add('active');
+                }
+
+                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                
+                const titles = {
+                    'dashboard': 'Dairy Farm Dashboard',
+                    'cow-master': 'Cow Registry Master',
+                    'daily-milk': 'Daily Milk Log',
+                    'pregnancy': 'Pregnancy Records',
+                    'birth-records': 'Birth & Calving Ledger',
+                    'transactions': 'Financial Book'
+                };
+                document.getElementById('headerTitle').innerText = titles[tabName] || 'Management App';
+
+                const targetPage = document.getElementById(`page-${tabName}`);
+                if(targetPage) targetPage.classList.add('active');
+
+                const searchBar = document.getElementById('searchWrapper');
+                if(tabName === 'dashboard') {
+                    searchBar.style.display = 'none';
+                    this.calculateDashboardMetrics();
+                } else {
+                    searchBar.style.display = 'block';
+                    document.getElementById('globalSearchInput').value = "";
+                    this.currentSearchQuery = "";
+                    this.renderList(this.getDataKeyFromTab(tabName));
+                }
+            }
+
+            getDataKeyFromTab(tab) {
+                if(tab === 'cow-master') return 'cows';
+                if(tab === 'daily-milk') return 'milk';
+                if(tab === 'pregnancy') return 'pregnancy';
+                if(tab === 'birth-records') return 'births';
+                if(tab === 'transactions') return 'transactions';
+                return '';
+            }
+
+            updateTxCategories() {
+                const isIncome = document.getElementById('tx-inc').checked;
+                const catSelect = document.getElementById('tx-category');
+                catSelect.innerHTML = '';
+                
+                const cats = isIncome 
+                    ? ['Milk Sales', 'Calf Sales', 'Cow Sales', 'Other Income']
+                    : ['Feed', 'Medical', 'Breeding', 'Labor', 'Equipment', 'Maintenance', 'Transport', 'Other Expenses'];
+                
+                cats.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c;
+                    opt.innerText = c;
+                    catSelect.appendChild(opt);
+                });
+            }
+
+            handleSuggestions(inputEl) {
+                const query = inputEl.value.toLowerCase().trim();
+                const container = inputEl.parentElement.querySelector('.suggestions-box');
+                container.innerHTML = '';
+
+                if(!query) {
+                    container.style.display = 'none';
+                    return;
+                }
+
+                const matches = this.data.cows.filter(c => c.name.toLowerCase().includes(query));
+                if(matches.length === 0) {
+                    container.style.display = 'none';
+                    return;
+                }
+
+                matches.forEach(cow => {
+                    const div = document.createElement('div');
+                    div.className = 'suggestion-item';
+                    div.innerText = cow.name;
+                    div.onclick = () => {
+                        inputEl.value = cow.name;
+                        container.style.display = 'none';
+                    };
+                    container.appendChild(div);
+                });
+                container.style.display = 'block';
+            }
+
+            /**
+             * Dashboard Timeframe Switch Engine
+             */
+            setDashboardTimeframe(mode) {
+                this.dashboardTimeframe = mode;
+                
+                // Toggle active css states
+                document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                document.getElementById(`chip-${mode}`).classList.add('active');
+
+                // Custom box view trigger
+                const customBox = document.getElementById('custom-date-box');
+                if(mode === 'custom') {
+                    customBox.style.display = 'block';
+                } else {
+                    customBox.style.display = 'none';
+                }
+
+                this.calculateDashboardMetrics();
+            }
+
+            /**
+             * Automated Dashboard Analytics Processing Computations Core
+             */
+            calculateDashboardMetrics() {
+                const todayObj = new Date();
+                const todayStr = todayObj.toISOString().split('T')[0];
+                
+                let startDateStr = todayStr;
+                let endDateStr = todayStr;
+
+                // Derive absolute filter bounds dynamically
+                if (this.dashboardTimeframe === 'today') {
+                    startDateStr = todayStr;
+                    endDateStr = todayStr;
+                } else if (this.dashboardTimeframe === 'week') {
+                    const dayOfWeek = todayObj.getDay(); 
+                    const distanceToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1; 
+                    const monday = new Date(todayObj);
+                    monday.setDate(todayObj.getDate() - distanceToMonday);
+                    startDateStr = monday.toISOString().split('T')[0];
+                    endDateStr = todayStr;
+                } else if (this.dashboardTimeframe === 'month') {
+                    startDateStr = todayStr.substring(0, 8) + '01';
+                    endDateStr = todayStr;
+                } else if (this.dashboardTimeframe === 'year') {
+                    startDateStr = todayStr.substring(0, 4) + '-01-01';
+                    endDateStr = todayStr;
+                } else if (this.dashboardTimeframe === 'custom') {
+                    startDateStr = document.getElementById('dash-start-date').value || todayStr;
+                    endDateStr = document.getElementById('dash-end-date').value || todayStr;
+                }
+
+                const start = new Date(startDateStr);
+                const end = new Date(endDateStr);
+                end.setHours(23, 59, 59, 999); // Inclusion buffer padding
+
+                // Universal filtering helper
+                const isInRange = (dateStr) => {
+                    if(!dateStr) return false;
+                    const d = new Date(dateStr);
+                    return d >= start && d <= end;
+                };
+
+                // Production yield filtering loops
+                const milkFiltered = this.data.milk.filter(m => isInRange(m.date));
+                const amTotal = milkFiltered.reduce((sum, m) => sum + m.am, 0);
+                const pmTotal = milkFiltered.reduce((sum, m) => sum + m.pm, 0);
+                const totalYield = milkFiltered.reduce((sum, m) => sum + m.total, 0);
+                const soldTotal = milkFiltered.reduce((sum, m) => sum + m.sold, 0);
+                const unsoldTotal = Math.max(0, totalYield - soldTotal);
+
+                document.getElementById('dash-milk-am').innerText = `${amTotal.toFixed(1)} L`;
+                document.getElementById('dash-milk-pm').innerText = `${pmTotal.toFixed(1)} L`;
+                document.getElementById('dash-milk-total').innerText = `${totalYield.toFixed(1)} L`;
+                document.getElementById('dash-milk-unsold').innerText = `${unsoldTotal.toFixed(1)} L`;
+
+                // Finances Ledgers Aggregations
+                const txFiltered = this.data.transactions.filter(t => isInRange(t.date));
+                const incTotal = txFiltered.filter(t => t.type === 'Income').reduce((s,t) => s + t.amount, 0);
+                const expTotal = txFiltered.filter(t => t.type === 'Expense').reduce((s,t) => s + t.amount, 0);
+                const netProfit = incTotal - expTotal;
+
+                document.getElementById('dash-today-income').innerText = `₹${incTotal}`;
+                document.getElementById('dash-today-expense').innerText = `₹${expTotal}`;
+                
+                const pSign = netProfit >= 0 ? '₹' : '-₹';
+                document.getElementById('dash-today-profit').innerText = `${pSign}${Math.abs(netProfit)}`;
+                document.getElementById('dash-today-profit').parentElement.style.backgroundColor = netProfit >= 0 ? '#f0fdf4' : '#fee2e2';
+
+                // Herd Status Summary Cards
+                const totalCows = this.data.cows.length;
+                const milkCows = this.data.cows.filter(c => c.status === 'Milking').length;
+                const pregCows = this.data.cows.filter(c => c.status === 'Pregnant').length;
+                const dryCows = this.data.cows.filter(c => c.status === 'Dry').length;
+
+                document.getElementById('dash-cows-total').innerText = totalCows;
+                document.getElementById('dash-cows-milking').innerText = milkCows;
+                document.getElementById('dash-cows-pregnant').innerText = pregCows;
+                document.getElementById('dash-cows-dry').innerText = dryCows;
+
+                // Long Term System Wide Analytics calculations
+                document.getElementById('dash-month-milk').innerText = `${totalYield.toFixed(1)} Liters`;
+
+                // Average Milk Yield per Cow over history tracking matrix
+                if(milkFiltered.length > 0) {
+                    const uniqueCowsLogged = [...new Set(milkFiltered.map(m => m.cowName.toLowerCase()))].length || 1;
+                    const averageVolume = totalYield / uniqueCowsLogged;
+                    document.getElementById('dash-avg-milk').innerText = `${averageVolume.toFixed(1)} L`;
+                } else {
+                    document.getElementById('dash-avg-milk').innerText = '0 L';
+                }
+
+                // Filtered performance individual target cow calculation
+                if(milkFiltered.length > 0) {
+                    const performanceMap = {};
+                    milkFiltered.forEach(m => {
+                        performanceMap[m.cowName] = Math.max(performanceMap[m.cowName] || 0, m.total);
+                    });
+                    let topCow = "None";
+                    let peakValue = 0;
+                    for(const c in performanceMap) {
+                        if(performanceMap[c] > peakValue) {
+                            peakValue = performanceMap[c];
+                            topCow = `${c} (${peakValue.toFixed(1)}L)`;
+                        }
+                    }
+                    document.getElementById('dash-top-cow').innerText = topCow;
+                } else {
+                    document.getElementById('dash-top-cow').innerText = 'None';
+                }
+
+                // Dynamic Live Calving Pregnancy Dashboard Alerts Panel Assembly
+                const alertContainer = document.getElementById('dash-pregnancy-alerts');
+                alertContainer.innerHTML = '';
+                const activePregnancies = this.data.pregnancy.filter(p => p.status === 'Confirmed');
+                
+                let matchingAlertsCount = 0;
+                activePregnancies.forEach(p => {
+                    const daysLeft = Math.ceil((new Date(p.expectedCalving) - new Date()) / (1000*60*60*24));
+                    if(daysLeft >= 0 && daysLeft <= 30) {
+                        matchingAlertsCount++;
+                        const item = document.createElement('div');
+                        item.style.padding = '8px 0';
+                        item.style.borderBottom = '1px solid #f1f5f9';
+                        item.style.fontSize = '16px';
+                        item.innerHTML = `⚠️ <strong>${p.cowName}</strong> expected to calve on <strong>${p.expectedCalving}</strong> (~${daysLeft} days remaining).`;
+                        alertContainer.appendChild(item);
+                    }
+                });
+                if(matchingAlertsCount === 0) {
+                    alertContainer.innerHTML = `<p style="color:var(--text-muted); font-size:16px;">No expected calvings within 30 days.</p>`;
+                }
+
+                // Dynamic Recent Birth Updates dashboard viewer module
+                const birthContainer = document.getElementById('dash-recent-births');
+                birthContainer.innerHTML = '';
+                const filteredBirths = this.data.births.filter(b => isInRange(b.date));
+                
+                if(filteredBirths.length === 0) {
+                    birthContainer.innerHTML = `<p style="color:var(--text-muted); font-size:16px;">No birth records found in selected range.</p>`;
+                } else {
+                    const records = [...filteredBirths].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 3);
+                    records.forEach(b => {
+                        const item = document.createElement('div');
+                        item.style.padding = '6px 0';
+                        item.style.borderBottom = '1px solid #f1f5f9';
+                        item.style.fontSize = '16px';
+                        item.innerHTML = `🎉 <strong>Calf ${b.calfTag}</strong> (${b.sex}) born to <strong>${b.mother}</strong> on ${b.date}.`;
+                        birthContainer.appendChild(item);
+                    });
+                }
+            }
+
+            saveRecord(event, key) {
+                event.preventDefault();
+                const today = new Date().toISOString().split('T')[0];
+
+                if(key === 'cows') {
+                    const id = document.getElementById('cow-id').value || 'COW-' + Date.now();
+                    const name = document.getElementById('cow-name').value.trim();
+                    const breed = document.getElementById('cow-breed').value.trim();
+                    const dob = document.getElementById('cow-dob').value;
+                    const purDate = document.getElementById('cow-purchase-date').value;
+                    const price = parseFloat(document.getElementById('cow-price').value) || 0;
+                    const status = document.querySelector('input[name="cow-status"]:checked').value;
+                    const remarks = document.getElementById('cow-remarks').value.trim();
+
+                    if(!name) return this.toast("Cow Name/Tag is absolutely mandatory.");
+                    if(price < 0) return this.toast("Price values cannot drop under 0.");
+
+                    const idx = this.data.cows.findIndex(c => c.id === id);
+                    const payload = { id, name, breed, dob, purDate, price, status, remarks };
+                    
+                    if(idx > -1) this.data.cows[idx] = payload;
+                    else this.data.cows.push(payload);
+
+                    this.toast("Cow Record Saved Successfully.");
+                    this.resetForm('cows');
+                    this.renderList('cows');
+
+                } else if(key === 'milk') {
+                    const id = document.getElementById('milk-id').value || 'MILK-' + Date.now();
+                    const date = document.getElementById('milk-date').value || today;
+                    const cowName = document.getElementById('milk-cow').value.trim();
+                    const am = parseFloat(document.getElementById('milk-am').value) || 0;
+                    const pm = parseFloat(document.getElementById('milk-pm').value) || 0;
+                    const sold = parseFloat(document.getElementById('milk-sold').value) || 0;
+                    const price = parseFloat(document.getElementById('milk-price').value) || 0;
+
+                    if(!cowName) return this.toast("Valid Cow Identification name is needed.");
+                    if(am < 0 || pm < 0 || sold < 0 || price < 0) return this.toast("Quantities/Rates cannot be negative values.");
+                    
+                    const total = am + pm;
+                    if(sold > total) return this.toast(`Validation Error: Sold Milk (${sold}L) cannot exceed Total Output (${total}L).`);
+
+                    const incomeAmount = sold * price;
+                    
+                    const idx = this.data.milk.findIndex(m => m.id === id);
+                    const payload = { id, date, cowName, am, pm, total, sold, price, income: incomeAmount };
+                    
+                    if(idx > -1) this.data.milk[idx] = payload;
+                    else this.data.milk.push(payload);
+
+                    if(incomeAmount > 0) {
+                        const txId = 'TX-AUTO-MILK-' + id.split('-')[1];
+                        const tIdx = this.data.transactions.findIndex(t => t.id === txId);
+                        const txPayload = {
+                            id: txId, date, type: 'Income', category: 'Milk Sales',
+                            cow: cowName, amount: incomeAmount, mode: 'Cash', remarks: `Auto-gen: ${sold}L from ${cowName}`
+                        };
+                        if(tIdx > -1) this.data.transactions[tIdx] = txPayload;
+                        else this.data.transactions.push(txPayload);
+                    }
+
+                    this.toast("Daily Production Log Logged.");
+                    this.resetForm('milk');
+                    this.renderList('milk');
+
+                } else if(key === 'pregnancy') {
+                    const id = document.getElementById('preg-id').value || 'PREG-' + Date.now();
+                    const cowName = document.getElementById('preg-cow').value.trim();
+                    const date = document.getElementById('preg-date').value || today;
+                    const method = document.querySelector('input[name="preg-method"]:checked').value;
+                    const doc = document.getElementById('preg-doc').value.trim();
+                    const cost = parseFloat(document.getElementById('preg-cost').value) || 0;
+                    const status = document.querySelector('input[name="preg-status"]:checked').value;
+                    const confDate = document.getElementById('preg-conf-date').value || date;
+                    const remarks = document.getElementById('preg-remarks').value.trim();
+
+                    if(!cowName) return this.toast("Cow link reference required.");
+                    if(cost < 0) return this.toast("Expenses cannot sit below 0.");
+
+                    const baseDate = new Date(confDate);
+                    baseDate.setDate(baseDate.getDate() + 283);
+                    const expectedCalving = baseDate.toISOString().split('T')[0];
+
+                    const idx = this.data.pregnancy.findIndex(p => p.id === id);
+                    const payload = { id, cowName, date, method, doc, cost, status, confDate, expectedCalving, remarks };
+
+                    if(idx > -1) this.data.pregnancy[idx] = payload;
+                    else this.data.pregnancy.push(payload);
+
+                    if(cost > 0) {
+                        const txId = 'TX-AUTO-PREG-' + id.split('-')[1];
+                        const tIdx = this.data.transactions.findIndex(t => t.id === txId);
+                        const txPayload = {
+                            id: txId, date, type: 'Expense', category: 'Breeding',
+                            cow: cowName, amount: cost, mode: 'Cash', remarks: `Auto-gen breeding: ${method}`
+                        };
+                        if(tIdx > -1) this.data.transactions[tIdx] = txPayload;
+                        else this.data.transactions.push(txPayload);
+                    }
+
+                    if(status === 'Confirmed') {
+                        const cIdx = this.data.cows.findIndex(c => c.name.toLowerCase() === cowName.toLowerCase());
+                        if(cIdx > -1) this.data.cows[cIdx].status = 'Pregnant';
+                    }
+
+                    this.toast("Breeding Record Saved Successfully.");
+                    this.resetForm('pregnancy');
+                    this.renderList('pregnancy');
+
+                } else if(key === 'births') {
+                    const id = document.getElementById('birth-id').value || 'BIRTH-' + Date.now();
+                    let calfTag = document.getElementById('birth-calf-tag').value.trim();
+                    if(!calfTag) calfTag = 'CALF-' + Date.now().toString().slice(-4);
+                    const mother = document.getElementById('birth-mother').value.trim();
+                    const sex = document.querySelector('input[name="birth-sex"]:checked').value;
+                    const date = document.getElementById('birth-date').value || today;
+                    const weight = parseFloat(document.getElementById('birth-weight').value) || 0;
+                    const type = document.querySelector('input[name="birth-type"]:checked').value;
+                    const cost = parseFloat(document.getElementById('birth-cost').value) || 0;
+                    const remarks = document.getElementById('birth-remarks').value.trim();
+
+                    if(!mother) return this.toast("Dam/Mother Identification name mandatory.");
+                    if(weight < 0 || cost < 0) return this.toast("Numeric limits cannot be below zero.");
+
+                    const idx = this.data.births.findIndex(b => b.id === id);
+                    const payload = { id, calfTag, mother, sex, date, weight, type, cost, remarks };
+
+                    if(idx > -1) this.data.births[idx] = payload;
+                    else this.data.births.push(payload);
+
+                    if(cost > 0) {
+                        const txId = 'TX-AUTO-BIRTH-' + id.split('-')[1];
+                        const tIdx = this.data.transactions.findIndex(t => t.id === txId);
+                        const txPayload = {
+                            id: txId, date, type: 'Expense', category: 'Medical',
+                            cow: mother, amount: cost, mode: 'Cash', remarks: `Calving vet fees (${type})`
+                        };
+                        if(tIdx > -1) this.data.transactions[tIdx] = txPayload;
+                        else this.data.transactions.push(txPayload);
+                    }
+
+                    this.toast("Offspring Birth Logged.");
+                    this.resetForm('births');
+                    this.renderList('births');
+
+                } else if(key === 'transactions') {
+                    const id = document.getElementById('tx-id').value || 'TX-' + Date.now();
+                    const date = document.getElementById('tx-date').value || today;
+                    const type = document.querySelector('input[name="tx-type"]:checked').value;
+                    const category = document.getElementById('tx-category').value;
+                    const cow = document.getElementById('tx-cow').value.trim();
+                    const amount = parseFloat(document.getElementById('tx-amount').value) || 0;
+                    const mode = document.getElementById('tx-mode').value;
+                    const remarks = document.getElementById('tx-remarks').value.trim();
+
+                    if(amount <= 0) return this.toast("Transaction amount value must run greater than zero.");
+
+                    const idx = this.data.transactions.findIndex(t => t.id === id);
+                    const payload = { id, date, type, category, cow, amount, mode, remarks };
+
+                    if(idx > -1) this.data.transactions[idx] = payload;
+                    else this.data.transactions.push(payload);
+
+                    this.toast("Financial Book Sync Complete.");
+                    this.resetForm('transactions');
+                    this.renderList('transactions');
+                }
+
+                this.persist();
+            }
+
+            resetForm(key) {
+                const today = new Date().toISOString().split('T')[0];
+                if(key === 'cows') {
+                    document.getElementById('form-cow').reset();
+                    document.getElementById('cow-id').value = '';
+                    document.getElementById('st-milking').checked = true;
+                } else if(key === 'milk') {
+                    document.getElementById('form-milk').reset();
+                    document.getElementById('milk-id').value = '';
+                    document.getElementById('milk-date').value = today;
+                    document.getElementById('milk-am').value = 0;
+                    document.getElementById('milk-pm').value = 0;
+                    document.getElementById('milk-sold').value = 0;
+                    document.getElementById('milk-price').value = 40;
+                } else if(key === 'pregnancy') {
+                    document.getElementById('form-pregnancy').reset();
+                    document.getElementById('preg-id').value = '';
+                    document.getElementById('preg-date').value = today;
+                    document.getElementById('m-ai').checked = true;
+                    document.getElementById('ps-conf').checked = true;
+                    document.getElementById('preg-cost').value = 0;
+                } else if(key === 'births') {
+                    document.getElementById('form-birth').reset();
+                    document.getElementById('birth-id').value = '';
+                    document.getElementById('birth-date').value = today;
+                    document.getElementById('sex-f').checked = true;
+                    document.getElementById('dt-norm').checked = true;
+                    document.getElementById('birth-weight').value = '';
+                    document.getElementById('birth-cost').value = 0;
+                } else if(key === 'transactions') {
+                    document.getElementById('form-tx').reset();
+                    document.getElementById('tx-id').value = '';
+                    document.getElementById('tx-date').value = today;
+                    document.getElementById('tx-inc').checked = true;
+                    this.updateTxCategories();
+                }
+            }
+
+            renderList(key) {
+                const container = document.getElementById(`list-${this.getTabNameFromKey(key)}`);
+                if(!container) return;
+                container.innerHTML = '';
+
+                let records = [...this.data[key]];
+
+                if(key === 'cows') {
+                    records.reverse(); 
+                } else {
+                    records.sort((a,b) => new Date(b.date || b.confDate) - new Date(a.date || a.confDate));
+                }
+
+                if(this.currentSearchQuery) {
+                    const q = this.currentSearchQuery.toLowerCase();
+                    records = records.filter(r => {
+                        const matchName = (r.name || r.cowName || r.mother || r.cow || "").toLowerCase().includes(q);
+                        const matchDate = (r.date || r.purDate || r.dob || "").toLowerCase().includes(q);
+                        const matchCat = (r.category || r.status || r.breed || "").toLowerCase().includes(q);
+                        return matchName || matchDate || matchCat;
+                    });
+                }
+
+                if(records.length === 0) {
+                    container.innerHTML = `<p style="color:var(--text-muted); padding:12px;">No matching records found.</p>`;
+                    return;
+                }
+
+                records.forEach(r => {
+                    const card = document.createElement('div');
+                    card.className = 'record-card';
+                    
+                    if(key === 'cows') {
+                        card.style.borderLeftColor = r.status === 'Milking' ? 'var(--success)' : r.status === 'Pregnant' ? 'var(--warning)' : 'var(--text-muted)';
+                        card.innerHTML = `
+                            <div class="record-header" onclick="app.openProfile('${r.name}')" style="cursor:pointer; color:var(--primary-dark); text-decoration:underline;">
+                                <span>🐄 ${r.name} [${r.breed || 'Unknown'}]</span>
+                                <span>${r.status}</span>
+                            </div>
+                            <div class="record-body" onclick="app.openProfile('${r.name}')" style="cursor:pointer;">
+                                Price: ₹${r.price} | Purchase: ${r.purDate || 'N/A'}<br>
+                                <small style="color:var(--text-muted);">${r.remarks || ''}</small>
+                            </div>
+                        `;
+                    } else if(key === 'milk') {
+                        card.innerHTML = `
+                            <div class="record-header"><span>🥛 ${r.cowName}</span><span>${r.date}</span></div>
+                            <div class="record-body">
+                                Output: ${r.total}L (AM: ${r.am}L | PM: ${r.pm}L)<br>
+                                Sales Market: Sold ${r.sold}L @ ₹${r.price}/L → <strong>₹${r.income}</strong>
+                            </div>
+                        `;
+                    } else if(key === 'pregnancy') {
+                        const daysLeft = Math.ceil((new Date(r.expectedCalving) - new Date()) / (1000*60*60*24));
+                        const traceDays = daysLeft > 0 ? `${daysLeft} days remaining` : 'Due / Passed term';
+                        card.innerHTML = `
+                            <div class="record-header"><span>🤰 ${r.cowName} (${r.method})</span><span>${r.status}</span></div>
+                            <div class="record-body">
+                                Bred: ${r.date} | Confirmed: ${r.confDate}<br>
+                                Expected Due Date: <strong>${r.expectedCalving}</strong> (${traceDays})
+                            </div>
+                        `;
+                    } else if(key === 'births') {
+                        card.innerHTML = `
+                            <div class="record-header"><span>🐮 Calf: ${r.calfTag}</span><span>${r.date}</span></div>
+                            <div class="record-body">
+                                Dam Mother: ${r.mother} | Sex: <strong>${r.sex}</strong><br>
+                                Weight: ${r.weight} Kg | Delivery: ${r.type} (Cost: ₹${r.cost})
+                            </div>
+                        `;
+                    } else if(key === 'transactions') {
+                        const isInc = r.type === 'Income';
+                        card.style.borderLeftColor = isInc ? 'var(--success)' : 'var(--danger)';
+                        card.innerHTML = `
+                            <div class="record-header">
+                                <span>${isInc ? '➕':'➖'} ${r.category} ${r.cow ? `[${r.cow}]`:''}</span>
+                                <span style="color:${isInc ? 'var(--success)':'var(--danger)'}">₹${r.amount}</span>
+                            </div>
+                            <div class="record-body">
+                                Date: ${r.date} | Mode: ${r.mode}<br>
+                                <small style="color:var(--text-muted);">${r.remarks || ''}</small>
+                            </div>
+                        `;
+                    }
+
+                    const actions = document.createElement('div');
+                    actions.className = 'record-actions';
+                    actions.innerHTML = `
+                        <button class="action-link edit" onclick="app.editRecord('${key}', '${r.id}')">Modify</button>
+                        <button class="action-link delete" onclick="app.deleteRecord('${key}', '${r.id}')">Delete</button>
+                    `;
+                    card.appendChild(actions);
+                    container.appendChild(card);
+                });
+            }
+
+            getTabNameFromKey(key) {
+                if(key === 'cows') return 'cow-master';
+                if(key === 'milk') return 'daily-milk';
+                if(key === 'pregnancy') return 'pregnancy';
+                if(key === 'births') return 'birth-records';
+                if(key === 'transactions') return 'transactions';
+                return '';
+            }
+
+            performSearch() {
+                this.currentSearchQuery = document.getElementById('globalSearchInput').value;
+                const activeKey = this.getDataKeyFromTab(this.activeTab);
+                if(activeKey) this.renderList(activeKey);
+            }
+
+            deleteRecord(key, id) {
+                if(confirm("Are you absolutely sure you want to completely erase this entry?")) {
+                    this.data[key] = this.data[key].filter(r => r.id !== id);
+                    
+                    if(key === 'milk' || key === 'pregnancy' || key === 'births') {
+                        const targetTxId = 'TX-AUTO-' + (key === 'milk' ? 'MILK-': key === 'pregnancy'?'PREG-':'BIRTH-') + id.split('-')[1];
+                        this.data.transactions = this.data.transactions.filter(t => t.id !== targetTxId);
+                    }
+
+                    this.toast("Item completely purged.");
+                    this.persist();
+                    this.renderList(key);
+                }
+            }
+
+            editRecord(key, id) {
+                const rec = this.data[key].find(r => r.id === id);
+                if(!rec) return;
+
+                window.scrollTo({top: 0, behavior: 'smooth'});
+
+                if(key === 'cows') {
+                    document.getElementById('cow-id').value = rec.id;
+                    document.getElementById('cow-name').value = rec.name;
+                    document.getElementById('cow-breed').value = rec.breed;
+                    document.getElementById('cow-dob').value = rec.dob;
+                    document.getElementById('cow-purchase-date').value = rec.purDate;
+                    document.getElementById('cow-price').value = rec.price;
+                    document.querySelector(`input[name="cow-status"][value="${rec.status}"]`).checked = true;
+                    document.getElementById('cow-remarks').value = rec.remarks;
+                } else if(key === 'milk') {
+                    document.getElementById('milk-id').value = rec.id;
+                    document.getElementById('milk-date').value = rec.date;
+                    document.getElementById('milk-cow').value = rec.cowName;
+                    document.getElementById('milk-am').value = rec.am;
+                    document.getElementById('milk-pm').value = rec.pm;
+                    document.getElementById('milk-sold').value = rec.sold;
+                    document.getElementById('milk-price').value = rec.price;
+                } else if(key === 'pregnancy') {
+                    document.getElementById('preg-id').value = rec.id;
+                    document.getElementById('preg-cow').value = rec.cowName;
+                    document.getElementById('preg-date').value = rec.date;
+                    document.querySelector(`input[name="preg-method"][value="${rec.method}"]`).checked = true;
+                    document.getElementById('preg-doc').value = rec.doc;
+                    document.getElementById('preg-cost').value = rec.cost;
+                    document.querySelector(`input[name="preg-status"][value="${rec.status}"]`).checked = true;
+                    document.getElementById('preg-conf-date').value = rec.confDate;
+                    document.getElementById('preg-remarks').value = rec.remarks;
+                } else if(key === 'births') {
+                    document.getElementById('birth-id').value = rec.id;
+                    document.getElementById('birth-calf-tag').value = rec.calfTag;
+                    document.getElementById('birth-mother').value = rec.mother;
+                    document.querySelector(`input[name="birth-sex"][value="${rec.sex}"]`).checked = true;
+                    document.getElementById('birth-date').value = rec.date;
+                    document.getElementById('birth-weight').value = rec.weight;
+                    document.querySelector(`input[name="birth-type"][value="${rec.type}"]`).checked = true;
+                    document.getElementById('birth-cost').value = rec.cost;
+                    document.getElementById('birth-remarks').value = rec.remarks;
+                } else if(key === 'transactions') {
+                    document.getElementById('tx-id').value = rec.id;
+                    document.getElementById('tx-date').value = rec.date;
+                    document.querySelector(`input[name="tx-type"][value="${rec.type}"]`).checked = true;
+                    this.updateTxCategories();
+                    document.getElementById('tx-category').value = rec.category;
+                    document.getElementById('tx-cow').value = rec.cow || '';
+                    document.getElementById('tx-amount').value = rec.amount;
+                    document.getElementById('tx-mode').value = rec.mode;
+                    document.getElementById('tx-remarks').value = rec.remarks;
+                }
+            }
+
+            openProfile(cowName) {
+                this.activeProfileCowName = cowName;
+                const cow = this.data.cows.find(c => c.name.toLowerCase() === cowName.toLowerCase());
+                if(!cow) return;
+
+                document.getElementById('searchWrapper').style.display = 'none';
+                document.getElementById('globalBackBtn').style.display = 'block';
+                document.getElementById('headerTitle').innerText = `${cow.name} Profile`;
+
+                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+                const pPage = document.getElementById('page-cow-profile');
+                pPage.classList.add('active');
+
+                document.getElementById('prof-title').innerText = `🐄 Animal Tag: ${cow.name}`;
+                document.getElementById('prof-breed-status').innerText = `Breed Context: ${cow.breed || 'N/A'} | Status Registry: ${cow.status}`;
+                document.getElementById('prof-meta-details').innerHTML = `
+                    Birth Horizon: ${cow.dob || 'Unknown'} <br>
+                    Procurement Matrix: Acquired on ${cow.purDate || 'N/A'} for cost of ₹${cow.price} <br>
+                    System Profile Notes: ${cow.remarks || 'None entered'}
+                `;
+
+                const milkFilter = this.data.milk.filter(m => m.cowName.toLowerCase() === cowName.toLowerCase());
+                document.getElementById('prof-milk-list').innerHTML = milkFilter.length ? milkFilter.map(m => `
+                    <div style="border-bottom:1px solid #f1f5f9; padding:6px 0; font-size:15px;">
+                        📅 <strong>${m.date}</strong>: Output ${m.total}L (AM:${m.am} PM:${m.pm}) | Sales: Sold ${m.sold}L → ₹${m.income}
+                    </div>
+                `).join('') : '<p style="color:var(--text-muted); font-size:15px;">No logged production records found.</p>';
+
+                const pregFilter = this.data.pregnancy.filter(p => p.cowName.toLowerCase() === cowName.toLowerCase());
+                document.getElementById('prof-preg-list').innerHTML = pregFilter.length ? pregFilter.map(p => `
+                    <div style="border-bottom:1px solid #f1f5f9; padding:6px 0; font-size:15px;">
+                        🌾 <strong>Bred Date: ${p.date}</strong> [${p.method}] - ${p.status}<br>Expected Calve Target: <strong>${p.expectedCalving}</strong>
+                    </div>
+                `).join('') : '<p style="color:var(--text-muted); font-size:15px;">No recorded artificial inseminations / breeding logs.</p>';
+
+                const birthFilter = this.data.births.filter(b => b.mother.toLowerCase() === cowName.toLowerCase());
+                document.getElementById('prof-birth-list').innerHTML = birthFilter.length ? birthFilter.map(b => `
+                    <div style="border-bottom:1px solid #f1f5f9; padding:6px 0; font-size:15px;">
+                        👶 <strong>Calved: ${b.date}</strong> | Calf Tag ID: ${b.calfTag} (${b.sex}) <br> Weight: ${b.weight}Kg | Delivery Type: ${b.type}
+                    </div>
+                `).join('') : '<p style="color:var(--text-muted); font-size:15px;">No progeny logs linked to this dam.</p>';
+
+                const txFilter = this.data.transactions.filter(t => t.cow && t.cow.toLowerCase() === cowName.toLowerCase());
+                document.getElementById('prof-tx-list').innerHTML = txFilter.length ? txFilter.map(t => `
+                    <div style="border-bottom:1px solid #f1f5f9; padding:6px 0; font-size:15px; color:${t.type==='Income'?'var(--success)':'var(--danger)'}">
+                        💰 <strong>${t.date}</strong> - ${t.category}: ${t.type==='Income'?'+':'-'}₹${t.amount} (${t.remarks || ''})
+                    </div>
+                `).join('') : '<p style="color:var(--text-muted); font-size:15px;">No specialized standalone accounts invoices tied to animal.</p>';
+            }
+
+            closeProfile() {
+                this.switchTab('cow-master');
+            }
+
+            backupData() {
+                const dateStr = new Date().toISOString().split('T')[0];
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.data));
+                const downloadAnchor = document.createElement('a');
+                downloadAnchor.setAttribute("href", dataStr);
+                downloadAnchor.setAttribute("download", `MilkManagement_Backup_${dateStr}.json`);
+                document.body.appendChild(downloadAnchor);
+                downloadAnchor.click();
+                downloadAnchor.remove();
+                this.toast("Backup JSON engine file exported successfully.");
+            }
+
+            restoreData(event) {
+                const file = event.target.files[0];
+                if(!file) return;
+
+                if(confirm("Are you entirely certain? This action completely replaces your existing database data!")) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const parsed = JSON.parse(e.target.result);
+                            if(parsed.cows && parsed.milk && parsed.pregnancy && parsed.births && parsed.transactions) {
+                                this.data = parsed;
+                                this.persist();
+                                this.switchTab('dashboard');
+                                this.toast("Restore completed successfully.");
+                            } else {
+                                this.toast("Invalid backup file: Essential tracking matrices missing.");
+                            }
+                        } catch(err) {
+                            this.toast("Parsing Error: Invalid JSON File.");
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+                event.target.value = ''; 
+            }
+
+            clearAllData() {
+                if(confirm("CRITICAL WARNING: You are completely deleting all historical farm data! This action cannot be reversed. Proceed?")) {
+                    this.data = { cows: [], milk: [], pregnancy: [], births: [], transactions: [] };
+                    this.persist();
+                    this.switchTab('dashboard');
+                    this.toast("System restored to factory settings.");
+                }
+            }
+
+            convertToCSV(arrayData) {
+                if(arrayData.length === 0) return '';
+                const headers = Object.keys(arrayData[0]).join(',');
+                const lines = arrayData.map(obj => 
+                    Object.values(obj).map(val => {
+                        let text = String(val).replace(/"/g, '""');
+                        if (text.includes(',') || text.includes('\n')) text = `"${text}"`;
+                        return text;
+                    }).join(',')
+                );
+                return [headers, ...lines].join('\n');
+            }
+
+            triggerCSVDownload(csvContent, filename) {
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            exportSingleCSV(key) {
+                const csv = this.convertToCSV(this.data[key]);
+                if(!csv) return this.toast("No records available to perform extraction operations.");
+                this.triggerCSVDownload(csv, `Dairy_${key}_Export_${new Date().toISOString().split('T')[0]}.csv`);
+            }
+
+            exportAllCSV() {
+                let checkCount = 0;
+                for(const key in this.data) {
+                    if(this.data[key].length > 0) {
+                        this.exportSingleCSV(key);
+                        checkCount++;
+                    }
+                }
+                if(checkCount === 0) this.toast("No database entities found to compile downloads.");
+                else this.toast(`Triggered standard downloads for ${checkCount} dynamic databases.`);
+            }
+        }
+
+        let app;
+        document.addEventListener('DOMContentLoaded', () => {
+            app = new DairyApp();
+            app.init();
+        });
+    </script>
+</body>
+</html>
