@@ -172,6 +172,12 @@
             padding: 12px;
             border-radius: var(--radius-sm);
             text-align: center;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        
+        .stat-box:hover {
+            background-color: var(--primary-light);
         }
 
         .stat-val {
@@ -417,6 +423,36 @@
             border-radius: var(--radius-sm);
             margin: 8px 0;
         }
+
+        /* Modal Sheet Styles */
+        .modal-layer {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0,0,0,0.4);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-layer.show { display: flex; }
+        .modal-content {
+            background-color: var(--surface);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: var(--shadow);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .income-source-line {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
@@ -468,8 +504,8 @@
             <div class="card">
                 <div class="card-title"><span class="material-icons green-text">trending_up</span> Business Health</div>
                 <div class="stat-grid">
-                    <div class="stat-box">
-                        <div class="stat-lbl">Net Cash Profit</div>
+                    <div class="stat-box" onclick="DashboardEngine.openIncomeStatementModal()">
+                        <div class="stat-lbl">Net Cash Profit <span class="material-icons" style="font-size:12px;vertical-align:middle;">info</span></div>
                         <div id="kpi-profit" class="stat-val green-text">₹0</div>
                     </div>
                     <div class="stat-box">
@@ -492,7 +528,10 @@
             <div class="card">
                 <div class="card-title"><span class="material-icons text-muted">account_balance_wallet</span> Cash Flow Breakdown</div>
                 <div class="stat-grid">
-                    <div class="stat-box"><div class="stat-lbl">Total Income</div><div id="fin-income" class="stat-val green-text">₹0</div></div>
+                    <div class="stat-box" onclick="DashboardEngine.openIncomeStatementModal()">
+                        <div class="stat-lbl">Total Income <span class="material-icons" style="font-size:12px;vertical-align:middle;">info</span></div>
+                        <div id="fin-income" class="stat-val green-text">₹0</div>
+                    </div>
                     <div class="stat-box"><div class="stat-lbl">Total Expenses</div><div id="fin-expense" class="stat-val red-text">₹0</div></div>
                 </div>
             </div>
@@ -918,6 +957,20 @@
 
     </main>
 
+    <!-- NEW INTERACTIVE REVENUE BREAKDOWN MODAL SHEET -->
+    <div id="income-statement-modal" class="modal-layer" onclick="DashboardEngine.closeIncomeStatementModal(event)">
+        <div class="modal-content">
+            <div class="card-title" style="margin-bottom:6px; color:var(--success)">
+                <span class="material-icons">account_balance_wallet</span> Timeframe Revenue Sources
+            </div>
+            <p class="stat-lbl" style="margin-bottom:16px;">Detailed structural breakdown of tracked income receipts inside current date filter views.</p>
+            <div id="income-modal-entries-holder">
+                <!-- Hydrated Reactively via calculations -->
+            </div>
+            <button class="btn btn-secondary btn-sm" style="margin-top:16px; width:100%;" onclick="document.getElementById('income-statement-modal').classList.remove('show')">Dismiss Breakdown View</button>
+        </div>
+    </div>
+
     <nav class="bottom-nav">
         <button class="nav-item active" onclick="NavigationEngine.navigate('dashboard', this)"><span class="material-icons">dashboard</span>Dashboard</button>
         <button class="nav-item" onclick="NavigationEngine.navigate('cows', this)"><span class="material-icons">pets</span>Herd</button>
@@ -938,6 +991,9 @@
             pregnancy: 'milkManagement_pregnancyBirth',
             transactions: 'milkManagement_transactions'
         };
+
+        // Cache layer tracking for instant multi-modal analysis queries
+        let currentCalculatedIncomeBreakdown = { sheetPaidRevenue: 0, manualDirectIncome: {}, customerReceiptsDetailed: [] };
 
         window.addEventListener('DOMContentLoaded', () => {
             const today = new Date();
@@ -1036,7 +1092,7 @@
                 const target = document.getElementById(containerId);
                 if (!target) return;
                 if(dataset.length === 0 || dataset.every(d => d.value === 0)) {
-                    target.innerHTML = `<div class="stat-lbl" style="text-align:center; padding: 10px;">Insufficient yield data points.</div>`;
+                    target.innerHTML = `<div class="stat-lbl" style="text-align:center; padding: 10px;">Insufficient data points.</div>`;
                     return;
                 }
                 let maxVal = Math.max(...dataset.map(d => d.value), 1);
@@ -1105,7 +1161,8 @@
                 const targetMonthKey = `${targetYear}-${targetMonth}`;
 
                 let totalOutstandingBookValue = 0;
-                let customerInflowRevenueProjected = 0;
+                let totalSheetPaidIncomeAccumulated = 0;
+                let internalDetailedCustomerReceipts = [];
 
                 customers.forEach(cust => {
                     if (cust.status === 'Inactive') return;
@@ -1116,7 +1173,7 @@
                         ? parseFloat(monthlyData.customVolume || 0) 
                         : CustomerEngine.getDefaultVolumeForMonth(cust, parseInt(targetYear), parseInt(targetMonth));
                     
-                    let deliveryInvoiceAmount = (monthlyData.customAmount !== undefined)
+                    let deliveryInvoiceAmount = (monthlyData.customAmount !== undefined && monthlyData.customAmount !== "")
                         ? parseFloat(monthlyData.customAmount || 0)
                         : (finalVolume * (cust.rate || 50));
                     
@@ -1125,7 +1182,8 @@
                     }
 
                     if(monthlyData.status === 'Paid') {
-                        customerInflowRevenueProjected += deliveryInvoiceAmount;
+                        totalSheetPaidIncomeAccumulated += deliveryInvoiceAmount;
+                        internalDetailedCustomerReceipts.push({ name: cust.name, amount: deliveryInvoiceAmount });
                     } else {
                         totalOutstandingBookValue += deliveryInvoiceAmount;
                     }
@@ -1143,14 +1201,28 @@
                 document.getElementById('prod-total').innerText = `${(totalAM + totalPM).toFixed(1)} L`;
                 document.getElementById('prod-sold').innerText = `${totalSold.toFixed(1)} L`;
 
-                let directIncome = 0, directExpense = 0;
+                let directIncomeTotal = 0, directExpense = 0;
+                let categoricalIncomeMapping = {};
+
                 transactions.filter(t => { let d = new Date(t.date); return d >= filter.start && d <= filter.end; })
                             .forEach(t => {
-                                if(t.type === 'Income') directIncome += parseFloat(t.amount || 0);
-                                else directExpense += parseFloat(t.amount || 0);
+                                if(t.type === 'Income') {
+                                    let amt = parseFloat(t.amount || 0);
+                                    directIncomeTotal += amt;
+                                    categoricalIncomeMapping[t.category] = (categoricalIncomeMapping[t.category] || 0) + amt;
+                                } else {
+                                    directExpense += parseFloat(t.amount || 0);
+                                }
                             });
 
-                let calculatedGrossIncome = directIncome + customerInflowRevenueProjected;
+                // Write calculations layer over global window context memory
+                currentCalculatedIncomeBreakdown = {
+                    sheetPaidRevenue: totalSheetPaidIncomeAccumulated,
+                    manualDirectIncome: categoricalIncomeMapping,
+                    customerReceiptsDetailed: internalDetailedCustomerReceipts
+                };
+
+                let calculatedGrossIncome = directIncomeTotal + totalSheetPaidIncomeAccumulated;
                 let calculatedNetProfit = calculatedGrossIncome - directExpense;
 
                 document.getElementById('fin-income').innerText = `₹${Math.round(calculatedGrossIncome).toLocaleString('en-IN')}`;
@@ -1187,6 +1259,56 @@
                     { label: 'Market Sold', value: Math.round(totalSold), color: 'var(--success)', unit: 'L' },
                     { label: 'Unsold/Internal', value: Math.round(Math.max(0, (totalAM+totalPM) - totalSold)), color: 'var(--warning)', unit: 'L' }
                 ]);
+            },
+            openIncomeStatementModal() {
+                const container = document.getElementById('income-modal-entries-holder');
+                let bufferHtml = "";
+
+                let sheetAmt = currentCalculatedIncomeBreakdown.sheetPaidRevenue || 0;
+                bufferHtml += `
+                    <div class="income-source-line" style="font-weight:700; color:var(--primary-dark)">
+                        <span>Ledger Sheet Collections</span>
+                        <span>₹${Math.round(sheetAmt).toLocaleString('en-IN')}</span>
+                    </div>
+                `;
+
+                // If sheets display detailed customers list, append small row items
+                if (currentCalculatedIncomeBreakdown.customerReceiptsDetailed.length > 0) {
+                    currentCalculatedIncomeBreakdown.customerReceiptsDetailed.forEach(c => {
+                        bufferHtml += `
+                            <div class="income-source-line" style="padding-left:15px; font-size:12px; border-bottom-style:dashed;">
+                                <span style="color:var(--text-muted)">↳ ${c.name}</span>
+                                <span>₹${Math.round(c.amount).toLocaleString('en-IN')}</span>
+                            </div>
+                        `;
+                    });
+                }
+
+                bufferHtml += `<div class="income-source-line" style="font-weight:700; color:var(--primary-dark); margin-top:10px;"><span>Direct Category Income</span><span></span></div>`;
+
+                let directItems = currentCalculatedIncomeBreakdown.manualDirectIncome || {};
+                let directKeys = Object.keys(directItems);
+
+                if (directKeys.length === 0 && sheetAmt === 0) {
+                    bufferHtml = `<div class="stat-lbl" style="text-align:center; padding:20px;">No income recorded during this timeframe interval.</div>`;
+                } else {
+                    directKeys.forEach(catKey => {
+                        bufferHtml += `
+                            <div class="income-source-line">
+                                <span>🟢 ${catKey}</span>
+                                <span>₹${Math.round(directItems[catKey]).toLocaleString('en-IN')}</span>
+                            </div>
+                        `;
+                    });
+                }
+
+                container.innerHTML = bufferHtml;
+                document.getElementById('income-statement-modal').classList.add('show');
+            },
+            closeIncomeStatementModal(e) {
+                if(e.target === document.getElementById('income-statement-modal')) {
+                    document.getElementById('income-statement-modal').classList.remove('show');
+                }
             }
         };
 
@@ -1371,7 +1493,6 @@
                     let inputVal = document.getElementById(`inline-vol-${customerId}`).value;
                     cust.monthlyRecords[targetMonthKey].customVolume = inputVal;
                     
-                    // Recalculate default price auto-match if user hasn't typed amount override
                     let currentAmountOverride = document.getElementById(`inline-amt-${customerId}`).value;
                     if (cust.monthlyRecords[targetMonthKey].customAmount === undefined || currentAmountOverride === "") {
                         let autoAmt = parseFloat(inputVal || 0) * (cust.rate || 50);
@@ -1402,33 +1523,9 @@
                 let nextStatus = (currentStatus === 'Paid') ? 'Pending' : 'Paid';
                 cust.monthlyRecords[targetMonthKey].status = nextStatus;
 
-                if(nextStatus === 'Paid') {
-                    let finalVol = (cust.monthlyRecords[targetMonthKey].customVolume !== undefined && cust.monthlyRecords[targetMonthKey].customVolume !== "")
-                        ? parseFloat(cust.monthlyRecords[targetMonthKey].customVolume)
-                        : this.getDefaultVolumeForMonth(cust, parseInt(targetYear), parseInt(targetMonth));
-
-                    let finalCalculatedSum = (cust.monthlyRecords[targetMonthKey].customAmount !== undefined && cust.monthlyRecords[targetMonthKey].customAmount !== "")
-                        ? parseFloat(cust.monthlyRecords[targetMonthKey].customAmount)
-                        : (finalVol * (cust.rate || 50));
-
-                    if(cust.ancillary) cust.ancillary.forEach(p => finalCalculatedSum += (p.qty * p.price));
-
-                    let txData = Database.get('transactions');
-                    txData.push({
-                        id: Database.generateUUID('TRX'),
-                        type: 'Income',
-                        date: new Date().toISOString().split('T')[0],
-                        category: 'Milk Sales',
-                        amount: Math.round(finalCalculatedSum),
-                        method: 'Cash',
-                        desc: `Paid Invoice: ${cust.name} (${textMonth} ${targetYear})`
-                    });
-                    Database.save('transactions', txData);
-                    UI.notify(`💸 Transferred ₹${Math.round(finalCalculatedSum)} to Cash Book`);
-                }
-
                 Database.save('customers', customers);
                 this.renderList();
+                UI.notify(`📊 Status changed to ${nextStatus.toUpperCase()} for ${textMonth}`);
             },
             addAncillaryRow(productData = { name: 'Curd', qty: 0, price: 0 }) {
                 const container = document.getElementById('ancillary-products-container');
