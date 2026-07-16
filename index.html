@@ -175,7 +175,7 @@
             cursor: pointer;
             transition: var(--transition);
         }
-        
+
         .stat-box:hover {
             background-color: var(--primary-light);
         }
@@ -250,6 +250,8 @@
             width: 100%;
             transition: var(--transition);
         }
+
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .btn-primary { background-color: var(--primary); color: #fff; }
         .btn-secondary { background-color: var(--border); color: var(--text-main); }
@@ -424,7 +426,22 @@
             margin: 8px 0;
         }
 
-        /* Modal Sheet Styles */
+        .daily-adjust-box {
+            background-color: #FFFDE7;
+            border: 1px dashed #FBC02D;
+            padding: 8px;
+            border-radius: var(--radius-sm);
+            margin-top: 8px;
+        }
+
+        .adjustment-badge {
+            display: inline-flex;
+            align-items: center;
+            font-size: 11px;
+            padding: 3px 6px;
+            border-radius: 6px;
+        }
+
         .modal-layer {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -453,16 +470,53 @@
             border-bottom: 1px solid var(--border);
             font-size: 14px;
         }
+
+        /* App-level loading overlay while persisted data loads */
+        #appLoadingOverlay {
+            position: fixed;
+            inset: 0;
+            background-color: var(--bg);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+        #appLoadingOverlay.hidden { display: none; }
+        .spinner {
+            width: 36px;
+            height: 36px;
+            border: 4px solid var(--primary-light);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .field-error {
+            border-color: var(--danger) !important;
+        }
+        .field-error-msg {
+            color: var(--danger);
+            font-size: 12px;
+            margin-top: 4px;
+        }
     </style>
 </head>
 <body>
+
+    <div id="appLoadingOverlay">
+        <div class="spinner"></div>
+        <div class="stat-lbl">Loading your farm data&hellip;</div>
+    </div>
 
     <!-- Native Top App Bar -->
     <header>
         <h1><span class="material-icons" style="color: var(--primary);">opacity</span> GRV Dairy Pro</h1>
         <div class="header-meta">
             <div id="appGreeting" class="header-greeting">Good Day</div>
-            <div id="appDate" class="header-date">15-07-2026</div>
+            <div id="appDate" class="header-date">16-07-2026</div>
         </div>
     </header>
 
@@ -665,7 +719,7 @@
 
         <!-- MODULE 3: CUSTOMER RELATIONS AND SHEET MONTH LEDGER -->
         <section id="page-customers" class="page">
-            
+
             <!-- MONTH SELECTOR CARDS ZONE -->
             <div class="card" style="border: 2px solid var(--primary);">
                 <div class="card-title" style="color: var(--primary-dark);"><span class="material-icons">calendar_view_month</span> Target Ledger Cycle Month</div>
@@ -709,7 +763,7 @@
                     <div class="stat-grid">
                         <div class="form-group">
                             <label class="form-label">Mobile Contact Number</label>
-                            <input type="tel" id="customer-phone" class="form-control" placeholder="10-digit phone number">
+                            <input type="tel" id="customer-phone" class="form-control" placeholder="10-digit phone number" pattern="[0-9]{10}" title="Enter a 10-digit phone number">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Profile Status</label>
@@ -804,9 +858,10 @@
                 <div class="card-title"><span class="material-icons">child_care</span> Record Breeding/Calving lifecycle</div>
                 <form id="form-pregnancy" onsubmit="PregnancyEngine.save(event)">
                     <input type="hidden" id="preg-id">
+                    <input type="hidden" id="preg-cow-id">
                     <div class="form-group">
                         <label class="form-label">Dam / Subject Cow (Autocomplete System) *</label>
-                        <input type="text" id="preg-cow-input" class="form-control" autocomplete="off" required placeholder="Select dam profile identifier...">
+                        <input type="text" id="preg-cow-input" class="form-control" autocomplete="off" required placeholder="Select dam profile identifier..." oninput="document.getElementById('preg-cow-id').value=''">
                         <div id="preg-cow-auto-box" class="autocomplete-box" style="display:none;"></div>
                     </div>
                     <div class="stat-grid">
@@ -957,7 +1012,7 @@
 
     </main>
 
-    <!-- NEW INTERACTIVE REVENUE BREAKDOWN MODAL SHEET -->
+    <!-- INTERACTIVE REVENUE BREAKDOWN MODAL SHEET -->
     <div id="income-statement-modal" class="modal-layer" onclick="DashboardEngine.closeIncomeStatementModal(event)">
         <div class="modal-content">
             <div class="card-title" style="margin-bottom:6px; color:var(--success)">
@@ -965,7 +1020,6 @@
             </div>
             <p class="stat-lbl" style="margin-bottom:16px;">Detailed structural breakdown of tracked income receipts inside current date filter views.</p>
             <div id="income-modal-entries-holder">
-                <!-- Hydrated Reactively via calculations -->
             </div>
             <button class="btn btn-secondary btn-sm" style="margin-top:16px; width:100%;" onclick="document.getElementById('income-statement-modal').classList.remove('show')">Dismiss Breakdown View</button>
         </div>
@@ -984,25 +1038,24 @@
     <div id="toast"></div>
 
     <script>
+        // Table names used as persistent storage keys.
         const STORAGE_KEYS = {
-            cows: 'milkManagement_cows',
-            customers: 'milkManagement_customers',
-            milk: 'milkManagement_dailyMilk',
-            pregnancy: 'milkManagement_pregnancyBirth',
-            transactions: 'milkManagement_transactions'
+            cows: 'cows',
+            customers: 'customers',
+            milk: 'milk',
+            pregnancy: 'pregnancy',
+            transactions: 'transactions'
         };
 
-        // Cache layer tracking for instant multi-modal analysis queries
         let currentCalculatedIncomeBreakdown = { sheetPaidRevenue: 0, manualDirectIncome: {}, customerReceiptsDetailed: [] };
 
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             const today = new Date();
             document.getElementById('appDate').innerText = formatLocalDate(today);
             document.getElementById('milk-date').value = today.toISOString().split('T')[0];
             document.getElementById('tx-date').value = today.toISOString().split('T')[0];
             document.getElementById('preg-date').value = today.toISOString().split('T')[0];
-            document.getElementById('exception-date').value = today.toISOString().split('T')[0];
-            
+
             document.getElementById('lookup-date-from').value = today.toISOString().split('T')[0];
             document.getElementById('lookup-date-to').value = today.toISOString().split('T')[0];
 
@@ -1010,10 +1063,13 @@
             document.getElementById('ledger-sheet-month').value = today.getMonth().toString();
 
             setDynamicGreeting(today);
-            Database.init();
+
+            // Load persisted data before we render anything that depends on it.
+            await Database.init();
+
             TransactionEngine.refreshCategories();
             DashboardEngine.render();
-            
+
             CowEngine.renderList();
             CustomerEngine.renderList();
             MilkEngine.renderList();
@@ -1022,6 +1078,8 @@
 
             CowEngine.populateLookupDropdowns();
             AutocompleteEngine.register('preg-cow-input', 'preg-cow-auto-box', 'cows');
+
+            document.getElementById('appLoadingOverlay').classList.add('hidden');
         });
 
         function formatLocalDate(dateObj) {
@@ -1047,21 +1105,41 @@
             }
         };
 
+        // Database now backs onto the persistent window.storage API instead of
+        // localStorage (which is not available inside Claude.ai artifacts and
+        // would silently fail to save anything). An in-memory cache keeps all
+        // the existing synchronous read/write call sites working unchanged;
+        // writes are mirrored to persistent storage in the background.
         const Database = {
-            init() {
-                for (let key in STORAGE_KEYS) {
-                    if (!localStorage.getItem(STORAGE_KEYS[key])) {
-                        localStorage.setItem(STORAGE_KEYS[key], JSON.stringify([]));
+            cache: { cows: [], customers: [], milk: [], pregnancy: [], transactions: [] },
+
+            async init() {
+                for (let table in STORAGE_KEYS) {
+                    try {
+                        const result = await window.storage.get(STORAGE_KEYS[table], false);
+                        this.cache[table] = result ? JSON.parse(result.value) : [];
+                    } catch (err) {
+                        // Key not found yet (new user) or a transient read error.
+                        this.cache[table] = [];
                     }
                 }
             },
             get(table) {
-                return JSON.parse(localStorage.getItem(STORAGE_KEYS[table])) || [];
+                return this.cache[table] || [];
             },
             save(table, dataArray) {
-                localStorage.setItem(STORAGE_KEYS[table], JSON.stringify(dataArray));
+                this.cache[table] = dataArray;
+                const persistPromise = window.storage.set(STORAGE_KEYS[table], JSON.stringify(dataArray), false)
+                    .catch(err => {
+                        console.error('Storage save failed for', table, err);
+                        UI.notify('⚠️ Could not save changes — please retry');
+                    });
+
                 DashboardEngine.render();
-                if(table === 'cows') CowEngine.populateLookupDropdowns();
+                if (table === 'cows') CowEngine.populateLookupDropdowns();
+                if (table === 'milk') MilkEngine.populateCowDropdown();
+
+                return persistPromise;
             },
             generateUUID(prefix) {
                 return `${prefix}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -1077,12 +1155,12 @@
                     document.querySelectorAll('nav.bottom-nav .nav-item').forEach(btn => btn.classList.remove('active'));
                     navigationElement.classList.add('active');
                 }
-                
+
                 if(targetPageId === 'dashboard') DashboardEngine.render();
                 if(targetPageId === 'data') StorageEngine.refreshSystemPerformanceCounters();
                 if(targetPageId === 'cows') CowEngine.populateLookupDropdowns();
                 if(targetPageId === 'customers') CustomerEngine.renderList();
-                
+
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         };
@@ -1092,7 +1170,7 @@
                 const target = document.getElementById(containerId);
                 if (!target) return;
                 if(dataset.length === 0 || dataset.every(d => d.value === 0)) {
-                    target.innerHTML = `<div class="stat-lbl" style="text-align:center; padding: 10px;">Insufficient data points.</div>`;
+                    target.innerHTML = `<div class="stat-lbl" style="text-align:center; padding: 10px;">Insufficient yield data points.</div>`;
                     return;
                 }
                 let maxVal = Math.max(...dataset.map(d => d.value), 1);
@@ -1168,15 +1246,15 @@
                     if (cust.status === 'Inactive') return;
 
                     let monthlyData = (cust.monthlyRecords && cust.monthlyRecords[targetMonthKey]) || {};
-                    
-                    let finalVolume = (monthlyData.customVolume !== undefined) 
-                        ? parseFloat(monthlyData.customVolume || 0) 
-                        : CustomerEngine.getDefaultVolumeForMonth(cust, parseInt(targetYear), parseInt(targetMonth));
-                    
+
+                    let finalVolume = (monthlyData.customVolume !== undefined && monthlyData.customVolume !== "")
+                        ? parseFloat(monthlyData.customVolume || 0)
+                        : CustomerEngine.calculateDynamicVolumeForMonth(cust, parseInt(targetYear), parseInt(targetMonth));
+
                     let deliveryInvoiceAmount = (monthlyData.customAmount !== undefined && monthlyData.customAmount !== "")
                         ? parseFloat(monthlyData.customAmount || 0)
                         : (finalVolume * (cust.rate || 50));
-                    
+
                     if(cust.ancillary) {
                         cust.ancillary.forEach(p => deliveryInvoiceAmount += (p.qty * p.price));
                     }
@@ -1195,7 +1273,7 @@
                         totalAM += parseFloat(m.am || 0); totalPM += parseFloat(m.pm || 0);
                         totalSold += parseFloat(m.sold || 0);
                     });
-                
+
                 document.getElementById('prod-am').innerText = `${totalAM.toFixed(1)} L`;
                 document.getElementById('prod-pm').innerText = `${totalPM.toFixed(1)} L`;
                 document.getElementById('prod-total').innerText = `${(totalAM + totalPM).toFixed(1)} L`;
@@ -1215,7 +1293,6 @@
                                 }
                             });
 
-                // Write calculations layer over global window context memory
                 currentCalculatedIncomeBreakdown = {
                     sheetPaidRevenue: totalSheetPaidIncomeAccumulated,
                     manualDirectIncome: categoricalIncomeMapping,
@@ -1228,7 +1305,7 @@
                 document.getElementById('fin-income').innerText = `₹${Math.round(calculatedGrossIncome).toLocaleString('en-IN')}`;
                 document.getElementById('fin-expense').innerText = `₹${Math.round(directExpense).toLocaleString('en-IN')}`;
                 document.getElementById('kpi-outstanding').innerText = `₹${Math.round(totalOutstandingBookValue).toLocaleString('en-IN')}`;
-                
+
                 const profitNode = document.getElementById('kpi-profit');
                 profitNode.innerText = `₹${Math.round(calculatedNetProfit).toLocaleString('en-IN')}`;
                 profitNode.className = calculatedNetProfit >= 0 ? "stat-val green-text" : "stat-val red-text";
@@ -1253,7 +1330,7 @@
                         }
                     }
                 });
-                document.getElementById('dash-pregnancy-alerts').innerHTML = alertBuffer || '<div class="stat-lbl">No immediate delivery threats flagged.</div>';
+                document.getElementById('dash-pregnancy-alerts').innerHTML = alertBuffer || '<div class="stat-lbl">No immediate threats.</div>';
 
                 ChartEngine.renderBarChart('chart-production-distribution', [
                     { label: 'Market Sold', value: Math.round(totalSold), color: 'var(--success)', unit: 'L' },
@@ -1272,7 +1349,6 @@
                     </div>
                 `;
 
-                // If sheets display detailed customers list, append small row items
                 if (currentCalculatedIncomeBreakdown.customerReceiptsDetailed.length > 0) {
                     currentCalculatedIncomeBreakdown.customerReceiptsDetailed.forEach(c => {
                         bufferHtml += `
@@ -1290,7 +1366,7 @@
                 let directKeys = Object.keys(directItems);
 
                 if (directKeys.length === 0 && sheetAmt === 0) {
-                    bufferHtml = `<div class="stat-lbl" style="text-align:center; padding:20px;">No income recorded during this timeframe interval.</div>`;
+                    bufferHtml = `<div class="stat-lbl" style="text-align:center; padding:20px;">No income recorded.</div>`;
                 } else {
                     directKeys.forEach(catKey => {
                         bufferHtml += `
@@ -1322,14 +1398,21 @@
                     const matchingRecords = Database.get(datasourceTable).filter(item => (item.name || '').toLowerCase().includes(value));
                     if(matchingRecords.length === 0) { box.style.display = 'none'; return; }
                     box.innerHTML = matchingRecords.map(rec => `
-                        <div class="autocomplete-item" onclick="AutocompleteEngine.select('${inputId}', '${boxId}', '${rec.name}', '${rec.id}')">${rec.name}</div>
+                        <div class="autocomplete-item" data-id="${rec.id}" data-name="${rec.name.replace(/"/g,'&quot;')}">${rec.name}</div>
                     `).join('');
+                    box.querySelectorAll('.autocomplete-item').forEach(el => {
+                        el.addEventListener('click', () => {
+                            AutocompleteEngine.select(inputId, boxId, el.dataset.name, el.dataset.id);
+                        });
+                    });
                     box.style.display = 'block';
                 });
                 document.addEventListener('click', (e) => { if (e.target !== input) box.style.display = 'none'; });
             },
             select(inputId, boxId, nameVal, idVal) {
                 document.getElementById(inputId).value = nameVal;
+                const hiddenIdField = document.getElementById(inputId.replace('-input', '-id'));
+                if (hiddenIdField) hiddenIdField.value = idVal;
                 document.getElementById(boxId).style.display = 'none';
             }
         };
@@ -1339,12 +1422,12 @@
                 const cows = Database.get('cows');
                 const lookupSelect = document.getElementById('lookup-cow-select');
                 const yieldSelect = document.getElementById('milk-cow-select');
-                
+
                 const fallbackHtml = cows.length === 0 ? `<option value="">⚠️ No cows registered</option>` : cows.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-                
+
                 if(lookupSelect) lookupSelect.innerHTML = fallbackHtml;
                 if(yieldSelect) yieldSelect.innerHTML = fallbackHtml;
-                
+
                 this.calculateYieldPerformance();
             },
             toggleLookupCustomDates() {
@@ -1356,7 +1439,7 @@
                 const cowId = document.getElementById('lookup-cow-select').value;
                 const timeframe = document.getElementById('lookup-timeframe-select').value;
                 const resultBox = document.getElementById('lookup-yield-result');
-                
+
                 if(!cowId) { resultBox.innerText = "0.0 Liters"; return; }
 
                 const now = new Date();
@@ -1375,6 +1458,9 @@
                         end.setHours(23,59,59,999);
                         break;
                     case 'custom':
+                        // Fixed: this must read the lookup module's own date
+                        // fields, not the dashboard's (previously pointed at
+                        // dashDateFrom/dashDateTo, which produced wrong totals).
                         start = new Date(document.getElementById('lookup-date-from').value || 0);
                         start.setHours(0,0,0,0);
                         end = new Date(document.getElementById('lookup-date-to').value || Date.now());
@@ -1403,10 +1489,13 @@
                 e.preventDefault();
                 const id = document.getElementById('cow-id').value;
                 const cows = Database.get('cows');
+                const name = document.getElementById('cow-name').value.trim();
+
+                if (!name) { UI.notify('⚠️ Animal name is required'); return; }
 
                 const record = {
                     id: id || Database.generateUUID('COW'),
-                    name: document.getElementById('cow-name').value.trim(),
+                    name: name,
                     tag: document.getElementById('cow-tag').value.trim(),
                     breed: document.getElementById('cow-breed').value,
                     gender: document.getElementById('cow-gender').value,
@@ -1451,8 +1540,18 @@
             },
             renderList() {
                 const query = document.getElementById('search-cow').value.toLowerCase().trim();
-                const filtered = Database.get('cows').filter(c => c.name.toLowerCase().includes(query) || c.id.toLowerCase().includes(query));
-                document.getElementById('list-cows').innerHTML = filtered.reverse().map(c => `
+                const filtered = Database.get('cows').filter(c =>
+                    c.name.toLowerCase().includes(query) ||
+                    c.id.toLowerCase().includes(query) ||
+                    (c.tag || '').toLowerCase().includes(query) ||
+                    (c.breed || '').toLowerCase().includes(query)
+                );
+                const target = document.getElementById('list-cows');
+                if (filtered.length === 0) {
+                    target.innerHTML = `<div class="empty-state"><span class="material-icons">pets</span><p>No matching animals in the herd yet.</p></div>`;
+                    return;
+                }
+                target.innerHTML = filtered.slice().reverse().map(c => `
                     <div class="item-card">
                         <div class="item-card-header"><span>🐄 ${c.name} [${c.id}]</span><span class="action-chip" style="padding:2px 8px; font-size:11px;">${c.status}</span></div>
                         <div class="item-card-body">Breed: ${c.breed} | Tag: ${c.tag || 'N/A'}</div>
@@ -1476,6 +1575,66 @@
                 let baseDailyVol = (cust.demandAM || 0) + (cust.demandPM || 0);
                 return baseDailyVol * totalDaysInMonth;
             },
+            calculateDynamicVolumeForMonth(cust, year, month) {
+                let totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+                let baseDailyVol = (cust.demandAM || 0) + (cust.demandPM || 0);
+                let runningTotalVolume = 0;
+
+                let dayLogs = cust.dailyAdjustments || {};
+
+                for (let i = 1; i <= totalDaysInMonth; i++) {
+                    let dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                    if (dayLogs[dateStr] !== undefined) {
+                        runningTotalVolume += parseFloat(dayLogs[dateStr]);
+                    } else {
+                        runningTotalVolume += baseDailyVol;
+                    }
+                }
+                return runningTotalVolume;
+            },
+            applyDailyAdjustment(customerId) {
+                const dateVal = document.getElementById(`adjust-date-${customerId}`).value;
+                const mode = document.getElementById(`adjust-mode-${customerId}`).value;
+                const quantityInput = document.getElementById(`adjust-qty-${customerId}`).value;
+
+                if (!dateVal) { UI.notify("⚠️ Please pick a valid calendar date first"); return; }
+
+                const customers = Database.get('customers');
+                const idx = customers.findIndex(c => c.id === customerId);
+                if (idx === -1) return;
+
+                let cust = customers[idx];
+                if (!cust.dailyAdjustments) cust.dailyAdjustments = {};
+
+                if (mode === 'pause') {
+                    cust.dailyAdjustments[dateVal] = 0;
+                } else {
+                    if (quantityInput === "" || parseFloat(quantityInput) < 0) { UI.notify("⚠️ Enter a valid volume quantity"); return; }
+                    cust.dailyAdjustments[dateVal] = parseFloat(quantityInput);
+                }
+
+                Database.save('customers', customers);
+
+                // Reactive recalculation and rendering refresh loop
+                this.renderList();
+                DashboardEngine.render();
+                UI.notify(`⚡ Logged adjustment on ${dateVal}`);
+            },
+            removeDailyAdjustment(customerId, dateKey) {
+                const customers = Database.get('customers');
+                const idx = customers.findIndex(c => c.id === customerId);
+                if (idx === -1) return;
+
+                let cust = customers[idx];
+                if (cust.dailyAdjustments) {
+                    delete cust.dailyAdjustments[dateKey];
+                }
+
+                Database.save('customers', customers);
+                this.renderList();
+                DashboardEngine.render();
+                UI.notify("🗑️ Removed custom date log");
+            },
             updateInlineValues(customerId, field) {
                 const targetYear = document.getElementById('ledger-sheet-year').value;
                 const targetMonth = document.getElementById('ledger-sheet-month').value;
@@ -1492,11 +1651,12 @@
                 if (field === 'volume') {
                     let inputVal = document.getElementById(`inline-vol-${customerId}`).value;
                     cust.monthlyRecords[targetMonthKey].customVolume = inputVal;
-                    
+
                     let currentAmountOverride = document.getElementById(`inline-amt-${customerId}`).value;
                     if (cust.monthlyRecords[targetMonthKey].customAmount === undefined || currentAmountOverride === "") {
                         let autoAmt = parseFloat(inputVal || 0) * (cust.rate || 50);
                         document.getElementById(`inline-amt-${customerId}`).value = Math.round(autoAmt);
+                        cust.monthlyRecords[targetMonthKey].customAmount = String(Math.round(autoAmt));
                     }
                 } else if (field === 'amount') {
                     cust.monthlyRecords[targetMonthKey].customAmount = document.getElementById(`inline-amt-${customerId}`).value;
@@ -1525,6 +1685,7 @@
 
                 Database.save('customers', customers);
                 this.renderList();
+                DashboardEngine.render();
                 UI.notify(`📊 Status changed to ${nextStatus.toUpperCase()} for ${textMonth}`);
             },
             addAncillaryRow(productData = { name: 'Curd', qty: 0, price: 0 }) {
@@ -1548,6 +1709,9 @@
             save(e) {
                 e.preventDefault();
                 const id = document.getElementById('customer-id').value;
+                const name = document.getElementById('customer-name').value.trim();
+                if (!name) { UI.notify('⚠️ Customer name is required'); return; }
+
                 const customers = Database.get('customers');
 
                 let productsList = [];
@@ -1561,17 +1725,19 @@
 
                 let existingRecord = id ? customers.find(c => c.id === id) : null;
                 let existingMonthlyRecords = existingRecord ? (existingRecord.monthlyRecords || {}) : {};
+                let existingAdjustments = existingRecord ? (existingRecord.dailyAdjustments || {}) : {};
 
                 const record = {
                     id: id || Database.generateUUID('CUS'),
-                    name: document.getElementById('customer-name').value.trim(),
+                    name: name,
                     phone: document.getElementById('customer-phone').value.trim(),
                     status: document.getElementById('customer-status').value,
                     demandAM: parseFloat(document.getElementById('cust-am-demand').value || 0),
                     demandPM: parseFloat(document.getElementById('cust-pm-demand').value || 0),
                     rate: parseFloat(document.getElementById('cust-price-rate').value || 50),
                     ancillary: productsList,
-                    monthlyRecords: existingMonthlyRecords
+                    monthlyRecords: existingMonthlyRecords,
+                    dailyAdjustments: existingAdjustments
                 };
 
                 if (id) {
@@ -1599,7 +1765,7 @@
                 document.getElementById('cust-am-demand').value = rec.demandAM || 0;
                 document.getElementById('cust-pm-demand').value = rec.demandPM || 0;
                 document.getElementById('cust-price-rate').value = rec.rate || 50;
-                
+
                 document.getElementById('ancillary-products-container').innerHTML = "";
                 if(rec.ancillary) rec.ancillary.forEach(prod => this.addAncillaryRow(prod));
 
@@ -1620,22 +1786,38 @@
                     return;
                 }
 
-                const targetYear = document.getElementById('ledger-sheet-year').value;
-                const targetMonth = document.getElementById('ledger-sheet-month').value;
+                const targetYear = parseInt(document.getElementById('ledger-sheet-year').value);
+                const targetMonth = parseInt(document.getElementById('ledger-sheet-month').value);
                 const targetMonthKey = `${targetYear}-${targetMonth}`;
 
-                target.innerHTML = filtered.reverse().map(c => {
+                target.innerHTML = filtered.slice().reverse().map(c => {
                     let monthlyData = (c.monthlyRecords && c.monthlyRecords[targetMonthKey]) || {};
-                    
-                    let defaultVol = this.getDefaultVolumeForMonth(c, parseInt(targetYear), parseInt(targetMonth));
-                    let currentVol = (monthlyData.customVolume !== undefined) ? monthlyData.customVolume : defaultVol;
-                    
+
+                    let computedVol = this.calculateDynamicVolumeForMonth(c, targetYear, targetMonth);
+                    let currentVol = (monthlyData.customVolume !== undefined && monthlyData.customVolume !== "") ? monthlyData.customVolume : computedVol;
+
                     let defaultAmt = parseFloat(currentVol || 0) * (c.rate || 50);
-                    let currentAmt = (monthlyData.customAmount !== undefined) ? monthlyData.customAmount : Math.round(defaultAmt);
+                    let currentAmt = (monthlyData.customAmount !== undefined && monthlyData.customAmount !== "") ? monthlyData.customAmount : Math.round(defaultAmt);
 
                     let isPaid = monthlyData.status === 'Paid';
                     let statusColor = isPaid ? 'var(--success)' : 'var(--danger)';
                     let statusLabel = isPaid ? 'PAID' : 'PENDING';
+
+                    // Parse adjustments inside active visual parameters filter window
+                    let badgeBuffer = "";
+                    let dayLogs = c.dailyAdjustments || {};
+                    Object.keys(dayLogs).sort().forEach(dateKey => {
+                        let parsedD = new Date(dateKey);
+                        if (parsedD.getFullYear() === targetYear && parsedD.getMonth() === targetMonth) {
+                            let displayVol = dayLogs[dateKey];
+                            badgeBuffer += `
+                                <div class="adjustment-badge" style="background:#FFF9C4; color:#F57F17; margin-right:4px;">
+                                    📅 ${dateKey.split('-')[2]}th: <b>${displayVol === 0 ? 'PAUSED' : displayVol + 'L'}</b>
+                                    <span style="color:var(--danger); font-weight:bold; margin-left:6px; cursor:pointer;" onclick="CustomerEngine.removeDailyAdjustment('${c.id}', '${dateKey}')">✕</span>
+                                </div>
+                            `;
+                        }
+                    });
 
                     return `
                         <div class="item-card" style="border-left-color: ${statusColor}; ${c.status === 'Inactive' ? 'opacity: 0.5;' : ''}">
@@ -1643,29 +1825,48 @@
                                 <span>👥 ${c.name}</span>
                                 <span style="font-weight:700; color:${statusColor}; font-size:12px;">${statusLabel}</span>
                             </div>
-                            
+
                             <div class="item-card-body">
+                                <!-- TARGET LOG ENTRY GROUP MATRIX -->
+                                <div class="daily-adjust-box">
+                                    <div style="font-weight:700; font-size:11px; color:#F57F17; margin-bottom:4px; display:flex; align-items:center; gap:2px;">
+                                        <span class="material-icons" style="font-size:14px;">edit_calendar</span> Log Single Day Exception
+                                    </div>
+                                    <div style="display:flex; gap:4px; align-items:center;">
+                                        <input type="date" id="adjust-date-${c.id}" class="form-control" style="height:32px; padding:0 4px; font-size:12px; flex:1.5;">
+                                        <select id="adjust-mode-${c.id}" class="form-control" style="height:32px; padding:0 4px; font-size:12px; flex:1.5;" onchange="document.getElementById('adjust-qty-wrapper-${c.id}').style.display = (this.value==='change'?'block':'none')">
+                                            <option value="pause">Pause (0L)</option>
+                                            <option value="change">Set Custom Qty</option>
+                                        </select>
+                                        <div id="adjust-qty-wrapper-${c.id}" style="display:none; flex:1;">
+                                            <input type="number" id="adjust-qty-${c.id}" class="form-control" placeholder="Liters" style="height:32px; padding:0 4px; font-size:12px;" value="${(c.demandAM+c.demandPM)}">
+                                        </div>
+                                        <button type="button" class="btn btn-primary btn-sm" style="height:32px; padding:0 8px; font-size:11px;" onclick="CustomerEngine.applyDailyAdjustment('${c.id}')">Apply</button>
+                                    </div>
+                                    <div style="margin-top:6px; display:flex; flex-wrap:wrap; gap:4px;">${badgeBuffer || '<span style="font-size:11px; color:var(--text-muted);">No daily alterations set for this month index.</span>'}</div>
+                                </div>
+
                                 <div class="inline-editable-group">
                                     <div style="display:flex; gap:8px; margin-bottom: 6px;">
                                         <div style="flex:1;">
                                             <label class="form-label" style="font-size:11px;">Liters this Month</label>
-                                            <input type="number" id="inline-vol-${c.id}" class="form-control" style="height:36px; font-size:13px;" value="${currentVol}" oninput="CustomerEngine.updateInlineValues('${c.id}', 'volume')">
+                                            <input type="number" id="inline-vol-${c.id}" class="form-control" style="height:36px; font-size:13px;" value="${parseFloat(currentVol).toFixed(1)}" oninput="CustomerEngine.updateInlineValues('${c.id}', 'volume')">
                                         </div>
                                         <div style="flex:1;">
                                             <label class="form-label" style="font-size:11px;">Total Amount (₹)</label>
                                             <input type="number" id="inline-amt-${c.id}" class="form-control" style="height:36px; font-size:13px;" value="${currentAmt}" oninput="CustomerEngine.updateInlineValues('${c.id}', 'amount')">
                                         </div>
                                     </div>
-                                    <span style="font-size:11px; color:var(--text-muted)">Default Base Rate: ₹${c.rate || 50}/L</span>
+                                    <span style="font-size:11px; color:var(--text-muted)">Default Base: (AM: ${c.demandAM}L | PM: ${c.demandPM}L) @ ₹${c.rate}/L</span>
                                 </div>
                             </div>
 
                             <div class="item-card-actions">
                                 <button class="btn btn-sm ${isPaid ? 'btn-secondary' : 'btn-success'}" onclick="CustomerEngine.quickTogglePayment('${c.id}')">
-                                    <span class="material-icons" style="font-size:16px;">payments</span> 
+                                    <span class="material-icons" style="font-size:16px;">payments</span>
                                     ${isPaid ? 'Mark Unpaid' : 'Mark Paid'}
                                 </button>
-                                <button class="btn btn-secondary btn-sm" onclick="CustomerEngine.edit('${c.id}')">Edit Standard Profile</button>
+                                <button class="btn btn-secondary btn-sm" onclick="CustomerEngine.edit('${c.id}')">Edit Profile</button>
                                 <button class="btn btn-danger btn-sm" style="background:transparent; color:var(--danger);" onclick="CustomerEngine.delete('${c.id}')">Delete</button>
                             </div>
                         </div>
@@ -1676,10 +1877,9 @@
 
         const MilkEngine = {
             populateCowDropdown() {
-                const selectElement = document.getElementById('milk-cow-select');
-                if(!selectElement) return;
-                const cows = Database.get('cows');
-                selectElement.innerHTML = cows.length === 0 ? `<option value="">⚠️ No cows registered</option>` : cows.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+                // Delegated to CowEngine so both cow-facing dropdowns
+                // (lookup + milk entry) always stay in sync from one place.
+                CowEngine.populateLookupDropdowns();
             },
             runAutoCalculations() {
                 const am = parseFloat(document.getElementById('milk-am').value || 0);
@@ -1695,8 +1895,9 @@
                 const milkData = Database.get('milk');
                 const selectedCowId = document.getElementById('milk-cow-select').value;
 
-                if(!selectedCowId) { alert("Please register and select an animal source."); return; }
+                if(!selectedCowId) { UI.notify("⚠️ Please register and select an animal source"); return; }
                 const matchedCow = Database.get('cows').find(c => c.id === selectedCowId);
+                if(!matchedCow) { UI.notify("⚠️ Selected animal could not be found"); return; }
 
                 const record = {
                     id: id || Database.generateUUID('MILK'),
@@ -1708,24 +1909,22 @@
                     sold: parseFloat(document.getElementById('milk-sold').value || 0)
                 };
 
-                if(id) { 
-                    let idx = milkData.findIndex(m => m.id === id); milkData[idx] = record; 
-                } else { 
-                    milkData.push(record); 
+                if(id) {
+                    let idx = milkData.findIndex(m => m.id === id); milkData[idx] = record;
+                } else {
+                    milkData.push(record);
                 }
 
                 Database.save('milk', milkData);
                 document.getElementById('form-milk').reset();
                 document.getElementById('milk-id').value = "";
                 document.getElementById('milk-date').value = new Date().toISOString().split('T')[0];
-                this.populateCowDropdown();
                 this.renderList();
                 CowEngine.calculateYieldPerformance();
                 UI.notify("✅ Shift Yield Metrics Recorded Successfully");
             },
             edit(id) {
                 const rec = Database.get('milk').find(m => m.id === id); if(!rec) return;
-                this.populateCowDropdown();
                 document.getElementById('milk-id').value = rec.id;
                 document.getElementById('milk-date').value = rec.date;
                 document.getElementById('milk-cow-select').value = rec.cowId;
@@ -1744,7 +1943,12 @@
             renderList() {
                 const query = document.getElementById('search-milk').value.toLowerCase().trim();
                 const filtered = Database.get('milk').filter(m => m.cowName.toLowerCase().includes(query));
-                document.getElementById('list-milk').innerHTML = filtered.reverse().map(m => `
+                const target = document.getElementById('list-milk');
+                if (filtered.length === 0) {
+                    target.innerHTML = `<div class="empty-state"><span class="material-icons">opacity</span><p>No shift records logged yet.</p></div>`;
+                    return;
+                }
+                target.innerHTML = filtered.slice().reverse().map(m => `
                     <div class="item-card" style="border-left-color: var(--primary);">
                         <div class="item-card-header"><span>🥛 ${m.cowName}</span><span style="font-size:12px;">${m.date}</span></div>
                         <div class="item-card-body">Yield: ${(m.am+m.pm).toFixed(1)}L (AM: ${m.am}L | PM: ${m.pm}L) | Sold: ${m.sold}L</div>
@@ -1770,8 +1974,17 @@
                 e.preventDefault();
                 const id = document.getElementById('preg-id').value;
                 const pregData = Database.get('pregnancy');
-                const matchedCow = Database.get('cows').find(c => c.name.toLowerCase() === document.getElementById('preg-cow-input').value.trim().toLowerCase());
-                if(!matchedCow) { alert("Dam identification missing."); return; }
+
+                // Prefer the ID captured from the autocomplete selection;
+                // fall back to a case-insensitive name match for direct typing.
+                const typedName = document.getElementById('preg-cow-input').value.trim();
+                const pickedId = document.getElementById('preg-cow-id').value;
+                const allCows = Database.get('cows');
+                const matchedCow = pickedId
+                    ? allCows.find(c => c.id === pickedId)
+                    : allCows.find(c => c.name.toLowerCase() === typedName.toLowerCase());
+
+                if(!matchedCow) { UI.notify("⚠️ Dam identification missing — pick a cow from the list"); return; }
 
                 const record = {
                     id: id || Database.generateUUID('PB'),
@@ -1801,6 +2014,7 @@
                 Database.save('pregnancy', pregData);
                 document.getElementById('form-pregnancy').reset();
                 document.getElementById('preg-id').value = "";
+                document.getElementById('preg-cow-id').value = "";
                 document.getElementById('birth-sub-form').style.display = 'none';
                 this.renderList();
                 UI.notify("Breeding Lifecycle Log Updated Successfully");
@@ -1808,6 +2022,7 @@
             edit(id) {
                 const rec = Database.get('pregnancy').find(p => p.id === id); if(!rec) return;
                 document.getElementById('preg-id').value = rec.id;
+                document.getElementById('preg-cow-id').value = rec.cowId || "";
                 document.getElementById('preg-cow-input').value = rec.cowName;
                 document.getElementById('preg-date').value = rec.date;
                 document.getElementById('preg-method').value = rec.method;
@@ -1825,7 +2040,12 @@
             renderList() {
                 const query = document.getElementById('search-pregnancy').value.toLowerCase().trim();
                 const filtered = Database.get('pregnancy').filter(p => p.cowName.toLowerCase().includes(query));
-                document.getElementById('list-pregnancy').innerHTML = filtered.reverse().map(p => `
+                const target = document.getElementById('list-pregnancy');
+                if (filtered.length === 0) {
+                    target.innerHTML = `<div class="empty-state"><span class="material-icons">child_care</span><p>No breeding records yet.</p></div>`;
+                    return;
+                }
+                target.innerHTML = filtered.slice().reverse().map(p => `
                     <div class="item-card" style="border-left-color: var(--accent);">
                         <div class="item-card-header"><span>🤰 ${p.cowName}</span><span class="action-chip" style="font-size:11px; padding:2px 6px;">${p.status}</span></div>
                         <div class="item-card-body">Insemination: ${p.date} | Expected Calving Date: ${p.projection || 'N/A'}</div>
@@ -1851,13 +2071,16 @@
                 e.preventDefault();
                 const id = document.getElementById('tx-id').value;
                 const txData = Database.get('transactions');
+                const amount = parseFloat(document.getElementById('tx-amount').value);
+
+                if (!amount || amount <= 0) { UI.notify('⚠️ Enter a valid amount'); return; }
 
                 const record = {
                     id: id || Database.generateUUID('TRX'),
                     type: document.getElementById('tx-type').value,
                     date: document.getElementById('tx-date').value,
                     category: document.getElementById('tx-category').value,
-                    amount: parseFloat(document.getElementById('tx-amount').value),
+                    amount: amount,
                     method: document.getElementById('tx-method').value,
                     desc: document.getElementById('tx-desc').value.trim()
                 };
@@ -1893,7 +2116,12 @@
             renderList() {
                 const query = document.getElementById('search-transactions').value.toLowerCase().trim();
                 const filtered = Database.get('transactions').filter(t => t.category.toLowerCase().includes(query) || (t.desc || '').toLowerCase().includes(query));
-                document.getElementById('list-transactions').innerHTML = filtered.reverse().map(t => `
+                const target = document.getElementById('list-transactions');
+                if (filtered.length === 0) {
+                    target.innerHTML = `<div class="empty-state"><span class="material-icons">account_balance_wallet</span><p>No transactions logged yet.</p></div>`;
+                    return;
+                }
+                target.innerHTML = filtered.slice().reverse().map(t => `
                     <div class="item-card" style="border-left-color: ${t.type === 'Income' ? 'var(--success)' : 'var(--danger)'};">
                         <div class="item-card-header"><span>${t.type==='Income'?'🟢':'🔴'} ${t.category}</span><strong>₹${t.amount}</strong></div>
                         <div class="item-card-body">Date: ${t.date} | Channel: ${t.method} <br><em>${t.desc || ''}</em></div>
@@ -1909,33 +2137,37 @@
         const StorageEngine = {
             refreshSystemPerformanceCounters() {
                 let cumulativePayloadString = "";
-                for(let key in STORAGE_KEYS) { cumulativePayloadString += localStorage.getItem(STORAGE_KEYS[key]) || ""; }
+                for(let table in STORAGE_KEYS) { cumulativePayloadString += JSON.stringify(Database.get(table)); }
                 document.getElementById('storage-bytes').innerText = `${((cumulativePayloadString.length * 2) / 1024).toFixed(2)} KB`;
                 let totalNodesCount = 0;
-                for(let key in STORAGE_KEYS) totalNodesCount += (JSON.parse(localStorage.getItem(STORAGE_KEYS[key])) || []).length;
+                for(let table in STORAGE_KEYS) totalNodesCount += Database.get(table).length;
                 document.getElementById('storage-records').innerText = `${totalNodesCount} Nodes`;
             },
             exportJSON() {
                 let snapshot = { appSignature: 'MILK_MANAGEMENT_PRO_ENGINE', generationTimestamp: new Date().toISOString(), dataPayload: {} };
-                for(let key in STORAGE_KEYS) snapshot.dataPayload[key] = Database.get(key);
+                for(let table in STORAGE_KEYS) snapshot.dataPayload[table] = Database.get(table);
                 const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
                 const anchor = document.createElement('a');
                 anchor.href = URL.createObjectURL(blob);
                 anchor.download = `GRV_Dairy_StateSnapshot_${new Date().toISOString().split('T')[0]}.json`;
                 anchor.click();
             },
-            importJSON(event) {
+            async importJSON(event) {
                 const f = event.target.files[0]; if(!f) return;
                 if(!confirm("Executing sync will replace existing local data arrays. Continue?")) return;
                 const fr = new FileReader();
-                fr.onload = (e) => {
+                fr.onload = async (e) => {
                     try {
                         const parsed = JSON.parse(e.target.result);
                         if(parsed.appSignature !== 'MILK_MANAGEMENT_PRO_ENGINE') throw new Error("File signature mismatch.");
-                        for(let key in STORAGE_KEYS) if(parsed.dataPayload[key]) Database.save(key, parsed.dataPayload[key]);
+                        const savePromises = [];
+                        for(let table in STORAGE_KEYS) {
+                            if(parsed.dataPayload[table]) savePromises.push(Database.save(table, parsed.dataPayload[table]));
+                        }
+                        await Promise.all(savePromises);
                         UI.notify("✅ Data Synced Successfully");
                         setTimeout(() => { location.reload(); }, 800);
-                    } catch(err) { alert(`Sync Failure: ${err.message}`); }
+                    } catch(err) { UI.notify(`❌ Sync Failure: ${err.message}`, 4000); }
                 };
                 fr.readAsText(f);
             },
@@ -1952,9 +2184,11 @@
                 anchor.download = `GRV_Dairy_${tableKey}_DataExport_${new Date().toISOString().split('T')[0]}.csv`;
                 anchor.click();
             },
-            purgeAllSystemData() {
+            async purgeAllSystemData() {
                 if(!confirm("Reset everything? Permanent data loss will occur!")) return;
-                localStorage.clear();
+                for (let table in STORAGE_KEYS) {
+                    try { await window.storage.delete(STORAGE_KEYS[table], false); } catch (err) { /* key may not exist yet */ }
+                }
                 location.reload();
             }
         };
